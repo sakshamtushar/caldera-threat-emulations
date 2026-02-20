@@ -13,7 +13,8 @@ Raccoon Stealer is an information-stealing malware-as-a-service (MaaS) active si
 ```
 raccoon-stealer-v2/
 ├── README.md
-├── deploy_to_caldera.sh          # Automated deployment script
+├── .env.example                  # Config template — copy to .env and fill in values
+├── deploy_to_caldera.sh          # Automated deployment script (reads .env)
 ├── adversaries/
 │   └── raccoon_stealer.yml       # Caldera adversary profile (20 abilities)
 ├── abilities/
@@ -157,32 +158,58 @@ Phase 5 — Staging & Exfiltration
 
 ## Deployment
 
-### Option A — Standard (non-Docker)
+All deployment configuration lives in a `.env` file — no hardcoded paths, no editing the script.
+
+### Step 1 — Clone and configure
 
 ```bash
 git clone https://github.com/sakshamtushar/caldera-threat-emulations.git
 cd caldera-threat-emulations/raccoon-stealer-v2
 
-export CALDERA_HOME=/path/to/caldera
+# Create your local config from the template
+cp .env.example .env
+```
+
+Edit `.env` with your values. See `.env.example` for full documentation of every variable.
+
+> `.env` is gitignored and will never be committed.
+
+### Option A — Standard (non-Docker)
+
+```ini
+# .env
+CALDERA_HOME=/opt/caldera
+DOCKER_MODE=false
+```
+
+```bash
 chmod +x deploy_to_caldera.sh
 ./deploy_to_caldera.sh
-
-# Restart Caldera to load new content
+# Script will remind you to restart Caldera after copying files
 ```
 
 ### Option B — Docker
 
+```ini
+# .env
+DOCKER_MODE=true
+DOCKER_CONTAINER=caldera-caldera-1
+DOCKER_CALDERA_WORKDIR=/usr/src/app
+```
+
 ```bash
-git clone https://github.com/sakshamtushar/caldera-threat-emulations.git
-cd caldera-threat-emulations/raccoon-stealer-v2
+chmod +x deploy_to_caldera.sh
+./deploy_to_caldera.sh
+# Script automatically runs docker cp, docker exec mkdir, and docker restart
+```
 
-CONTAINER="your-caldera-container-name"
+### Override without .env
 
-docker exec "$CONTAINER" mkdir -p /usr/src/app/data/abilities/raccoon-stealer
-docker cp abilities/. "$CONTAINER":/usr/src/app/data/abilities/raccoon-stealer/
-docker cp adversaries/raccoon_stealer.yml "$CONTAINER":/usr/src/app/data/adversaries/
+Exported environment variables take precedence over `.env`:
 
-docker restart "$CONTAINER"
+```bash
+export CALDERA_HOME=/opt/caldera
+./deploy_to_caldera.sh
 ```
 
 ---
