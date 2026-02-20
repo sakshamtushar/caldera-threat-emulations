@@ -1,0 +1,53 @@
+---
+# Caldera Adversary Profile: Raccoon Stealer v2
+# MITRE ATT&CK ID: S1148
+# Description: Information stealer malware emulation
+
+id: b8c5d9e2-4a1f-4c3b-9d8e-7f6a5b4c3d2e
+name: Raccoon Stealer v2
+description: |
+  Raccoon Stealer is an information-stealing malware-as-a-service (MaaS) active since 2019.
+  This adversary profile emulates the TTPs observed in Raccoon Stealer v2 campaigns,
+  including system discovery, credential harvesting, cryptocurrency wallet theft, and data exfiltration.
+  
+  Associated Groups: Scattered Spider (G1015)
+  MITRE ATT&CK ID: S1148
+
+atomic_ordering:
+  # Phase 1: System Discovery
+  - a1b2c3d4-1111-4a5b-8c9d-e0f1a2b3c4d5  # raccoon-system-info-discovery
+  - a1b2c3d4-2222-4a5b-8c9d-e0f1a2b3c4d5  # raccoon-registry-machineGuid
+  - a1b2c3d4-3333-4a5b-8c9d-e0f1a2b3c4d5  # raccoon-user-discovery
+  - a1b2c3d4-4444-4a5b-8c9d-e0f1a2b3c4d5  # raccoon-process-discovery
+  - a1b2c3d4-5555-4a5b-8c9d-e0f1a2b3c4d5  # raccoon-software-discovery
+  - a1b2c3d4-4040-4a5b-8c9d-e0f1a2b3c4d5  # raccoon-timezone-discovery
+  
+  # Phase 2: Browser Credential Harvesting
+  - a1b2c3d4-6666-4a5b-8c9d-e0f1a2b3c4d5  # raccoon-chrome-profile-discovery
+  - a1b2c3d4-7777-4a5b-8c9d-e0f1a2b3c4d5  # raccoon-firefox-profile-discovery
+  - a1b2c3d4-8888-4a5b-8c9d-e0f1a2b3c4d5  # raccoon-edge-profile-discovery
+  - a1b2c3d4-9999-4a5b-8c9d-e0f1a2b3c4d5  # raccoon-browser-cookies-harvest
+  - a1b2c3d4-aaaa-4a5b-8c9d-e0f1a2b3c4d5  # raccoon-browser-passwords-harvest
+  - a1b2c3d4-bbbb-4a5b-8c9d-e0f1a2b3c4d5  # raccoon-browser-autofill-harvest
+  
+  # Phase 3: Cryptocurrency Wallet Discovery
+  - a1b2c3d4-cccc-4a5b-8c9d-e0f1a2b3c4d5  # raccoon-wallet-dat-search
+  - a1b2c3d4-dddd-4a5b-8c9d-e0f1a2b3c4d5  # raccoon-crypto-wallet-discovery
+  - a1b2c3d4-eeee-4a5b-8c9d-e0f1a2b3c4d5  # raccoon-browser-extension-wallet-discovery
+  
+  # Phase 4: Additional Data Collection
+  - a1b2c3d4-ffff-4a5b-8c9d-e0f1a2b3c4d5  # raccoon-telegram-cache-discovery
+  - a1b2c3d4-1010-4a5b-8c9d-e0f1a2b3c4d5  # raccoon-screenshot-capture
+  - a1b2c3d4-1111-4a5b-8c9d-e0f1a2b3c4d6  # raccoon-file-grabber
+  
+  # Phase 5: Data Staging & Exfiltration
+  - a1b2c3d4-2020-4a5b-8c9d-e0f1a2b3c4d5  # raccoon-data-staging
+  - a1b2c3d4-3030-4a5b-8c9d-e0f1a2b3c4d5  # raccoon-data-exfiltration-simulation
+
+objective: default
+tags:
+  - infostealer
+  - raccoon
+  - credential-theft
+  - cryptocurrency
+  - s1148

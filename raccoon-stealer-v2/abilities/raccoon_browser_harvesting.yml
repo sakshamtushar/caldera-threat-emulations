@@ -1,0 +1,168 @@
+---
+# Raccoon Stealer - Browser Cookie Harvesting
+# MITRE ATT&CK: T1539 - Steal Web Session Cookie
+
+- id: a1b2c3d4-9999-4a5b-8c9d-e0f1a2b3c4d5
+  name: raccoon-browser-cookies-harvest
+  description: |
+    Raccoon Stealer harvests cookies from Chrome, Firefox, and Edge browsers
+    using sqlite3.dll to execute SQL queries against browser databases.
+  tactic: credential-access
+  technique:
+    attack_id: T1539
+    name: Steal Web Session Cookie
+  platforms:
+    windows:
+      psh:
+        command: |
+          Write-Output "[*] Simulating Raccoon Stealer cookie harvesting..."
+          
+          # Chrome cookies location
+          $chromeCookies = "$env:LOCALAPPDATA\Google\Chrome\User Data\Default\Network\Cookies"
+          if (-not (Test-Path $chromeCookies)) {
+            $chromeCookies = "$env:LOCALAPPDATA\Google\Chrome\User Data\Default\Cookies"
+          }
+          
+          # Firefox cookies
+          $firefoxProfiles = "$env:APPDATA\Mozilla\Firefox\Profiles"
+          
+          # Edge cookies
+          $edgeCookies = "$env:LOCALAPPDATA\Microsoft\Edge\User Data\Default\Network\Cookies"
+          
+          $cookieLocations = @{
+            "Chrome" = $chromeCookies
+            "Edge" = $edgeCookies
+          }
+          
+          foreach ($browser in $cookieLocations.Keys) {
+            $path = $cookieLocations[$browser]
+            if (Test-Path $path) {
+              $size = (Get-Item $path).Length
+              Write-Output "[+] $browser cookies found: $path ($size bytes)"
+              Write-Output "    [*] Would execute: SELECT host_key, name, encrypted_value FROM cookies"
+            } else {
+              Write-Output "[-] $browser cookies not found at expected location"
+            }
+          }
+          
+          # Firefox SQLite cookies
+          if (Test-Path $firefoxProfiles) {
+            $ffCookies = Get-ChildItem -Path $firefoxProfiles -Recurse -Filter "cookies.sqlite" -ErrorAction SilentlyContinue
+            foreach ($cookie in $ffCookies) {
+              Write-Output "[+] Firefox cookies found: $($cookie.FullName) ($($cookie.Length) bytes)"
+              Write-Output "    [*] Would execute: SELECT host, name, value FROM moz_cookies"
+            }
+          }
+          
+          Write-Output "`n[*] Cookie harvesting simulation complete"
+          Write-Output "[!] Note: Actual Raccoon uses sqlite3.dll to query these databases"
+  singleton: true
+  requirements: []
+
+---
+# Raccoon Stealer - Browser Password Harvesting
+# MITRE ATT&CK: T1555.003 - Credentials from Web Browsers
+
+- id: a1b2c3d4-aaaa-4a5b-8c9d-e0f1a2b3c4d5
+  name: raccoon-browser-passwords-harvest
+  description: |
+    Raccoon Stealer harvests saved passwords from Chrome, Firefox, and Edge browsers.
+    Uses sqlite3.dll and nss3.dll for database access and decryption.
+  tactic: credential-access
+  technique:
+    attack_id: T1555.003
+    name: Credentials from Web Browsers
+  platforms:
+    windows:
+      psh:
+        command: |
+          Write-Output "[*] Simulating Raccoon Stealer password harvesting..."
+          
+          # Chrome Login Data
+          $chromeLoginData = "$env:LOCALAPPDATA\Google\Chrome\User Data\Default\Login Data"
+          
+          # Firefox logins.json
+          $firefoxProfiles = "$env:APPDATA\Mozilla\Firefox\Profiles"
+          
+          # Edge Login Data
+          $edgeLoginData = "$env:LOCALAPPDATA\Microsoft\Edge\User Data\Default\Login Data"
+          
+          $loginLocations = @{
+            "Chrome" = $chromeLoginData
+            "Edge" = $edgeLoginData
+          }
+          
+          foreach ($browser in $loginLocations.Keys) {
+            $path = $loginLocations[$browser]
+            if (Test-Path $path) {
+              $size = (Get-Item $path).Length
+              Write-Output "[+] $browser Login Data found: $path ($size bytes)"
+              Write-Output "    [*] SQL: SELECT origin_url, username_value, password_value FROM logins"
+              Write-Output "    [*] Note: Passwords are encrypted with DPAPI"
+            } else {
+              Write-Output "[-] $browser Login Data not found"
+            }
+          }
+          
+          # Check for Chrome Local State (contains encryption key)
+          $chromeLocalState = "$env:LOCALAPPDATA\Google\Chrome\User Data\Local State"
+          if (Test-Path $chromeLocalState) {
+            Write-Output "[+] Chrome Local State found (contains encrypted key)"
+          }
+          
+          # Firefox logins.json
+          if (Test-Path $firefoxProfiles) {
+            $ffLogins = Get-ChildItem -Path $firefoxProfiles -Recurse -Filter "logins.json" -ErrorAction SilentlyContinue
+            foreach ($login in $ffLogins) {
+              Write-Output "[+] Firefox logins.json found: $($login.FullName)"
+              Write-Output "    [*] Uses nss3.dll for decryption"
+            }
+          }
+          
+          Write-Output "`n[*] Password harvesting simulation complete"
+  singleton: true
+  requirements: []
+
+---
+# Raccoon Stealer - Browser Autofill Harvesting
+
+- id: a1b2c3d4-bbbb-4a5b-8c9d-e0f1a2b3c4d5
+  name: raccoon-browser-autofill-harvest
+  description: |
+    Raccoon Stealer harvests autofill data including credit card information
+    from browser databases.
+  tactic: credential-access
+  technique:
+    attack_id: T1555.003
+    name: Credentials from Web Browsers
+  platforms:
+    windows:
+      psh:
+        command: |
+          Write-Output "[*] Simulating Raccoon Stealer autofill/credit card harvesting..."
+          
+          # Chrome/Edge Web Data (contains autofill and credit cards)
+          $chromeWebData = "$env:LOCALAPPDATA\Google\Chrome\User Data\Default\Web Data"
+          $edgeWebData = "$env:LOCALAPPDATA\Microsoft\Edge\User Data\Default\Web Data"
+          
+          $webDataLocations = @{
+            "Chrome" = $chromeWebData
+            "Edge" = $edgeWebData
+          }
+          
+          foreach ($browser in $webDataLocations.Keys) {
+            $path = $webDataLocations[$browser]
+            if (Test-Path $path) {
+              $size = (Get-Item $path).Length
+              Write-Output "[+] $browser Web Data found: $path ($size bytes)"
+              Write-Output "    [*] Contains: Autofill profiles, Credit cards"
+              Write-Output "    [*] Credit Card SQL: SELECT name_on_card, card_number_encrypted, expiration_month, expiration_year FROM credit_cards"
+              Write-Output "    [*] Autofill SQL: SELECT name, value FROM autofill"
+            } else {
+              Write-Output "[-] $browser Web Data not found"
+            }
+          }
+          
+          Write-Output "`n[*] Autofill harvesting simulation complete"
+  singleton: true
+  requirements: []

@@ -1,0 +1,57 @@
+---
+# Raccoon Stealer - Process Discovery
+# MITRE ATT&CK: T1057 - Process Discovery
+
+- id: a1b2c3d4-4444-4a5b-8c9d-e0f1a2b3c4d5
+  name: raccoon-process-discovery
+  description: |
+    Raccoon Stealer enumerates running processes on the infected host.
+    This is used to check for analysis tools and security software.
+  tactic: discovery
+  technique:
+    attack_id: T1057
+    name: Process Discovery
+  platforms:
+    windows:
+      psh:
+        command: |
+          # Enumerate running processes like Raccoon does
+          Write-Output "[*] Enumerating running processes..."
+          
+          $processes = Get-Process | Select-Object ProcessName, Id, Path, Company
+          
+          # Check for security/analysis tools (Raccoon checks for these)
+          $securityTools = @(
+            "procmon", "procexp", "wireshark", "fiddler", "x64dbg", "x32dbg",
+            "ollydbg", "ida", "ida64", "immunity", "pestudio", "processhacker",
+            "tcpview", "autoruns", "regmon", "filemon", "apimonitor"
+          )
+          
+          $antivirusProcesses = @(
+            "MsMpEng", "avp", "avgnt", "avguard", "bdagent", "ccSvcHst",
+            "ekrn", "AvastSvc", "mbam", "SavService"
+          )
+          
+          Write-Output "`n[*] Total Processes: $($processes.Count)"
+          
+          $foundSecTools = $processes | Where-Object { $securityTools -contains $_.ProcessName.ToLower() }
+          $foundAV = $processes | Where-Object { $antivirusProcesses -contains $_.ProcessName }
+          
+          if ($foundSecTools) {
+            Write-Output "[!] Security/Analysis tools detected:"
+            $foundSecTools | Format-Table -AutoSize
+          }
+          
+          if ($foundAV) {
+            Write-Output "[!] Antivirus processes detected:"
+            $foundAV | Format-Table -AutoSize
+          }
+          
+          # Output all processes
+          Write-Output "`n[*] All Running Processes:"
+          $processes | Format-Table ProcessName, Id -AutoSize
+      cmd:
+        command: |
+          tasklist /v
+  singleton: true
+  requirements: []

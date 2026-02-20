@@ -1,0 +1,66 @@
+---
+# Raccoon Stealer - Software Discovery
+# MITRE ATT&CK: T1518 - Software Discovery
+
+- id: a1b2c3d4-5555-4a5b-8c9d-e0f1a2b3c4d5
+  name: raccoon-software-discovery
+  description: |
+    Raccoon Stealer lists installed applications by querying the Windows Registry
+    at HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall
+  tactic: discovery
+  technique:
+    attack_id: T1518
+    name: Software Discovery
+  platforms:
+    windows:
+      psh:
+        command: |
+          Write-Output "[*] Enumerating installed software..."
+          
+          # Query both 32-bit and 64-bit uninstall paths like Raccoon does
+          $registryPaths = @(
+            "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*",
+            "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*",
+            "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*"
+          )
+          
+          $installedSoftware = @()
+          
+          foreach ($path in $registryPaths) {
+            $installedSoftware += Get-ItemProperty $path -ErrorAction SilentlyContinue | 
+              Where-Object { $_.DisplayName } |
+              Select-Object DisplayName, DisplayVersion, Publisher, InstallDate
+          }
+          
+          $installedSoftware = $installedSoftware | Sort-Object DisplayName -Unique
+          
+          Write-Output "[*] Found $($installedSoftware.Count) installed applications"
+          Write-Output ""
+          
+          # Look for browsers (targets for Raccoon)
+          $browsers = $installedSoftware | Where-Object { 
+            $_.DisplayName -match "Chrome|Firefox|Edge|Opera|Brave" 
+          }
+          
+          if ($browsers) {
+            Write-Output "[*] Detected Browsers (Raccoon Targets):"
+            $browsers | Format-Table DisplayName, DisplayVersion -AutoSize
+          }
+          
+          # Look for crypto wallets
+          $wallets = $installedSoftware | Where-Object { 
+            $_.DisplayName -match "Exodus|Atomic|Electrum|Wasabi|Ledger|Bitcoin" 
+          }
+          
+          if ($wallets) {
+            Write-Output "[*] Detected Crypto Wallets (Raccoon Targets):"
+            $wallets | Format-Table DisplayName, DisplayVersion -AutoSize
+          }
+          
+          Write-Output "`n[*] All Installed Software:"
+          $installedSoftware | Format-Table DisplayName, DisplayVersion -AutoSize
+      cmd:
+        command: |
+          wmic product get name,version
+  singleton: true
+  requirements: []

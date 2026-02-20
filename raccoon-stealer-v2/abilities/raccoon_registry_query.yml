@@ -1,0 +1,30 @@
+---
+# Raccoon Stealer - Registry MachineGuid Query
+# MITRE ATT&CK: T1012 - Query Registry
+
+- id: a1b2c3d4-2222-4a5b-8c9d-e0f1a2b3c4d5
+  name: raccoon-registry-machineGuid
+  description: |
+    Raccoon Stealer queries the Windows Registry to fingerprint the host via
+    HKLM:\SOFTWARE\Microsoft\Cryptography\MachineGuid. This unique identifier
+    is used to track infected hosts.
+  tactic: discovery
+  technique:
+    attack_id: T1012
+    name: Query Registry
+  platforms:
+    windows:
+      psh:
+        command: |
+          # Raccoon Stealer fingerprints hosts using MachineGuid
+          $machineGuid = (Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Cryptography" -Name MachineGuid).MachineGuid
+          Write-Output "[*] MachineGuid: $machineGuid"
+          
+          # Raccoon also constructs: machineId=<MachineGuid>|<UserName>&configId=<RC4 key>
+          $fingerprint = "machineId=$machineGuid|$env:USERNAME"
+          Write-Output "[*] Host Fingerprint: $fingerprint"
+      cmd:
+        command: |
+          reg query "HKLM\SOFTWARE\Microsoft\Cryptography" /v MachineGuid
+  singleton: true
+  requirements: []

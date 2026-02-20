@@ -1,0 +1,155 @@
+---
+# Raccoon Stealer - Browser Profile Discovery
+# MITRE ATT&CK: T1083 - File and Directory Discovery
+
+- id: a1b2c3d4-6666-4a5b-8c9d-e0f1a2b3c4d5
+  name: raccoon-chrome-profile-discovery
+  description: |
+    Raccoon Stealer searches for Chrome browser profile directories containing
+    User Data folders with cookies, passwords, and autofill information.
+  tactic: discovery
+  technique:
+    attack_id: T1083
+    name: File and Directory Discovery
+  platforms:
+    windows:
+      psh:
+        command: |
+          Write-Output "[*] Searching for Chrome browser profiles..."
+          
+          $chromeUserData = "$env:LOCALAPPDATA\Google\Chrome\User Data"
+          
+          if (Test-Path $chromeUserData) {
+            Write-Output "[+] Chrome User Data found at: $chromeUserData"
+            
+            # List profiles
+            $profiles = Get-ChildItem -Path $chromeUserData -Directory | 
+              Where-Object { $_.Name -eq "Default" -or $_.Name -match "^Profile" }
+            
+            foreach ($profile in $profiles) {
+              Write-Output "`n[*] Profile: $($profile.Name)"
+              
+              # Check for target files (Raccoon targets)
+              $targetFiles = @(
+                "Login Data",      # Passwords
+                "Cookies",         # Session cookies
+                "Web Data",        # Autofill, credit cards
+                "History",         # Browsing history
+                "Bookmarks"        # Bookmarks
+              )
+              
+              foreach ($file in $targetFiles) {
+                $filePath = Join-Path $profile.FullName $file
+                if (Test-Path $filePath) {
+                  $size = (Get-Item $filePath).Length
+                  Write-Output "    [+] Found: $file ($size bytes)"
+                }
+              }
+              
+              # Check for extensions (wallet extensions)
+              $extensionsPath = Join-Path $profile.FullName "Local Extension Settings"
+              if (Test-Path $extensionsPath) {
+                $extensions = Get-ChildItem $extensionsPath -Directory
+                Write-Output "    [*] Extensions found: $($extensions.Count)"
+              }
+            }
+          } else {
+            Write-Output "[-] Chrome User Data not found"
+          }
+  singleton: true
+  requirements: []
+
+---
+# Raccoon Stealer - Firefox Profile Discovery
+
+- id: a1b2c3d4-7777-4a5b-8c9d-e0f1a2b3c4d5
+  name: raccoon-firefox-profile-discovery
+  description: |
+    Raccoon Stealer searches for Firefox browser profile directories
+    containing cookies, logins.json, and history data.
+  tactic: discovery
+  technique:
+    attack_id: T1083
+    name: File and Directory Discovery
+  platforms:
+    windows:
+      psh:
+        command: |
+          Write-Output "[*] Searching for Firefox browser profiles..."
+          
+          $firefoxProfiles = "$env:APPDATA\Mozilla\Firefox\Profiles"
+          
+          if (Test-Path $firefoxProfiles) {
+            Write-Output "[+] Firefox Profiles found at: $firefoxProfiles"
+            
+            $profiles = Get-ChildItem -Path $firefoxProfiles -Directory
+            
+            foreach ($profile in $profiles) {
+              Write-Output "`n[*] Profile: $($profile.Name)"
+              
+              # Raccoon targets these Firefox files
+              $targetFiles = @(
+                "logins.json",     # Saved passwords
+                "cookies.sqlite",  # Cookies
+                "places.sqlite",   # History and bookmarks
+                "key4.db",         # Master password database
+                "cert9.db"         # Certificate database
+              )
+              
+              foreach ($file in $targetFiles) {
+                $filePath = Join-Path $profile.FullName $file
+                if (Test-Path $filePath) {
+                  $size = (Get-Item $filePath).Length
+                  Write-Output "    [+] Found: $file ($size bytes)"
+                }
+              }
+            }
+          } else {
+            Write-Output "[-] Firefox Profiles not found"
+          }
+  singleton: true
+  requirements: []
+
+---
+# Raccoon Stealer - Edge Profile Discovery
+
+- id: a1b2c3d4-8888-4a5b-8c9d-e0f1a2b3c4d5
+  name: raccoon-edge-profile-discovery
+  description: |
+    Raccoon Stealer searches for Microsoft Edge browser profile directories.
+  tactic: discovery
+  technique:
+    attack_id: T1083
+    name: File and Directory Discovery
+  platforms:
+    windows:
+      psh:
+        command: |
+          Write-Output "[*] Searching for Microsoft Edge browser profiles..."
+          
+          $edgeUserData = "$env:LOCALAPPDATA\Microsoft\Edge\User Data"
+          
+          if (Test-Path $edgeUserData) {
+            Write-Output "[+] Edge User Data found at: $edgeUserData"
+            
+            $profiles = Get-ChildItem -Path $edgeUserData -Directory | 
+              Where-Object { $_.Name -eq "Default" -or $_.Name -match "^Profile" }
+            
+            foreach ($profile in $profiles) {
+              Write-Output "`n[*] Profile: $($profile.Name)"
+              
+              $targetFiles = @("Login Data", "Cookies", "Web Data", "History")
+              
+              foreach ($file in $targetFiles) {
+                $filePath = Join-Path $profile.FullName $file
+                if (Test-Path $filePath) {
+                  $size = (Get-Item $filePath).Length
+                  Write-Output "    [+] Found: $file ($size bytes)"
+                }
+              }
+            }
+          } else {
+            Write-Output "[-] Edge User Data not found"
+          }
+  singleton: true
+  requirements: []

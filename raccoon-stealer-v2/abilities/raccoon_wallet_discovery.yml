@@ -1,0 +1,174 @@
+---
+# Raccoon Stealer - Cryptocurrency Wallet Discovery
+# MITRE ATT&CK: T1005 - Data from Local System, T1083 - File and Directory Discovery
+
+- id: a1b2c3d4-cccc-4a5b-8c9d-e0f1a2b3c4d5
+  name: raccoon-wallet-dat-search
+  description: |
+    Raccoon Stealer searches for wallet.dat files across the system,
+    targeting Bitcoin and other cryptocurrency wallets.
+  tactic: collection
+  technique:
+    attack_id: T1005
+    name: Data from Local System
+  platforms:
+    windows:
+      psh:
+        command: |
+          Write-Output "[*] Searching for wallet.dat files (Bitcoin wallets)..."
+          
+          $searchPaths = @(
+            "$env:APPDATA",
+            "$env:LOCALAPPDATA",
+            "$env:USERPROFILE"
+          )
+          
+          $walletFiles = @()
+          
+          foreach ($path in $searchPaths) {
+            if (Test-Path $path) {
+              $found = Get-ChildItem -Path $path -Recurse -Filter "wallet.dat" -ErrorAction SilentlyContinue
+              $walletFiles += $found
+            }
+          }
+          
+          if ($walletFiles.Count -gt 0) {
+            Write-Output "[+] Found $($walletFiles.Count) wallet.dat file(s):"
+            foreach ($wallet in $walletFiles) {
+              Write-Output "    [+] $($wallet.FullName) ($($wallet.Length) bytes)"
+            }
+          } else {
+            Write-Output "[-] No wallet.dat files found"
+          }
+          
+          Write-Output "`n[*] wallet.dat search complete"
+  singleton: true
+  requirements: []
+
+---
+# Raccoon Stealer - Crypto Wallet Application Discovery
+
+- id: a1b2c3d4-dddd-4a5b-8c9d-e0f1a2b3c4d5
+  name: raccoon-crypto-wallet-discovery
+  description: |
+    Raccoon Stealer searches for cryptocurrency wallet application data
+    including Exodus, Atomic, Electrum, Coinomi, and others.
+  tactic: collection
+  technique:
+    attack_id: T1005
+    name: Data from Local System
+  platforms:
+    windows:
+      psh:
+        command: |
+          Write-Output "[*] Searching for cryptocurrency wallet applications..."
+          
+          # Raccoon Stealer targets these wallet directories
+          $walletPaths = @{
+            "Exodus" = "$env:APPDATA\Exodus\exodus.wallet"
+            "Atomic" = "$env:APPDATA\atomic\Local Storage\leveldb"
+            "Electrum" = "$env:APPDATA\Electrum\wallets"
+            "Electrum-LTC" = "$env:APPDATA\Electrum-LTC\wallets"
+            "ElectrumCash" = "$env:APPDATA\ElectronCash\wallets"
+            "Jaxx Liberty" = "$env:APPDATA\com.liberty.jaxx\IndexedDB"
+            "Coinomi" = "$env:LOCALAPPDATA\Coinomi\Coinomi\wallets"
+            "Guarda" = "$env:APPDATA\Guarda\Local Storage\leveldb"
+            "Binance" = "$env:APPDATA\Binance"
+            "BlockstreamGreen" = "$env:APPDATA\Blockstream\Green"
+            "MyMonero" = "$env:APPDATA\MyMonero"
+            "Monero" = "$env:APPDATA\Monero\wallets"
+            "Wasabi" = "$env:APPDATA\WalletWasabi\Client\Wallets"
+            "Daedalus" = "$env:APPDATA\Daedalus"
+            "Ledger Live" = "$env:APPDATA\Ledger Live"
+          }
+          
+          $foundWallets = @()
+          
+          foreach ($wallet in $walletPaths.Keys) {
+            $path = $walletPaths[$wallet]
+            if (Test-Path $path) {
+              $itemCount = (Get-ChildItem -Path $path -Recurse -ErrorAction SilentlyContinue | Measure-Object).Count
+              Write-Output "[+] $wallet wallet found: $path"
+              Write-Output "    [*] Items: $itemCount"
+              $foundWallets += $wallet
+            }
+          }
+          
+          if ($foundWallets.Count -eq 0) {
+            Write-Output "[-] No known cryptocurrency wallets found"
+          } else {
+            Write-Output "`n[*] Total wallets found: $($foundWallets.Count)"
+          }
+  singleton: true
+  requirements: []
+
+---
+# Raccoon Stealer - Browser Extension Wallet Discovery
+
+- id: a1b2c3d4-eeee-4a5b-8c9d-e0f1a2b3c4d5
+  name: raccoon-browser-extension-wallet-discovery
+  description: |
+    Raccoon Stealer searches for cryptocurrency browser extension wallets
+    like MetaMask, Coinbase Wallet, Phantom, and others.
+  tactic: collection
+  technique:
+    attack_id: T1005
+    name: Data from Local System
+  platforms:
+    windows:
+      psh:
+        command: |
+          Write-Output "[*] Searching for cryptocurrency browser extension wallets..."
+          
+          # Chrome extension IDs for crypto wallets (Raccoon targets these)
+          $chromeExtensions = @{
+            "MetaMask" = "nkbihfbeogaeaoehlefnkodbefgpgknn"
+            "Coinbase" = "hnfanknocfeofbddgcijnmhnfnkdnaad"
+            "Phantom" = "bfnaelmomeimhlpmgjnjophhpkkoljpa"
+            "TronLink" = "ibnejdfjmmkpcnlpebklmnkoeoihofec"
+            "Binance Chain" = "fhbohimaelbohpjbbldcngcnapndodjp"
+            "Ronin" = "fnjhmkhhmkbjkkabndcnnogagogbneec"
+            "XDEFI" = "hmeobnfnfcmdkdcmlblgagmfpfboieaf"
+            "Rabby" = "acmacodkjbdgmoleebolmdjonilkdbch"
+            "Brave Wallet" = "odbfpeeihdkbihmopkbjmoonfanlbfcl"
+            "MEW CX" = "nlbmnnijcnlegkjjpcfjclmcfggfefdm"
+            "Solflare" = "bhhhlbepdkbapadjdnnojkbgioiodbic"
+            "Keplr" = "dmkamcknogkgcdfhhbddcghachkejeap"
+            "Terra Station" = "aiifbnbfobpmeekipheeijimdpnlpgpp"
+            "TON" = "nphplpgoakhhjchkkhmiggakijnkhfnd"
+          }
+          
+          $chromeExtPath = "$env:LOCALAPPDATA\Google\Chrome\User Data\Default\Local Extension Settings"
+          $edgeExtPath = "$env:LOCALAPPDATA\Microsoft\Edge\User Data\Default\Local Extension Settings"
+          
+          $foundExtensions = @()
+          
+          # Check Chrome extensions
+          Write-Output "`n[*] Checking Chrome extensions..."
+          if (Test-Path $chromeExtPath) {
+            foreach ($ext in $chromeExtensions.Keys) {
+              $extPath = Join-Path $chromeExtPath $chromeExtensions[$ext]
+              if (Test-Path $extPath) {
+                Write-Output "[+] Chrome: $ext wallet extension found"
+                Write-Output "    Path: $extPath"
+                $foundExtensions += "Chrome-$ext"
+              }
+            }
+          }
+          
+          # Check Edge extensions
+          Write-Output "`n[*] Checking Edge extensions..."
+          if (Test-Path $edgeExtPath) {
+            foreach ($ext in $chromeExtensions.Keys) {
+              $extPath = Join-Path $edgeExtPath $chromeExtensions[$ext]
+              if (Test-Path $extPath) {
+                Write-Output "[+] Edge: $ext wallet extension found"
+                Write-Output "    Path: $extPath"
+                $foundExtensions += "Edge-$ext"
+              }
+            }
+          }
+          
+          Write-Output "`n[*] Total wallet extensions found: $($foundExtensions.Count)"
+  singleton: true
+  requirements: []

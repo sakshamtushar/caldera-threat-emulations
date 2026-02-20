@@ -1,0 +1,231 @@
+# Raccoon Stealer Detection Rules (Sigma Format)
+# For use with SIEM platforms
+
+title: Raccoon Stealer - MachineGuid Registry Access
+id: 7a8b9c0d-1234-5678-9abc-def012345678
+status: experimental
+description: Detects access to the MachineGuid registry key, commonly accessed by Raccoon Stealer for host fingerprinting
+references:
+    - https://attack.mitre.org/software/S1148/
+    - https://blog.sekoia.io/raccoon-stealer-v2-part-2-in-depth-analysis/
+author: Threat Emulation Team
+date: 2024/01/15
+tags:
+    - attack.discovery
+    - attack.t1012
+logsource:
+    category: registry_access
+    product: windows
+detection:
+    selection:
+        TargetObject|contains: '\SOFTWARE\Microsoft\Cryptography'
+        TargetObject|endswith: 'MachineGuid'
+    filter:
+        Image|endswith:
+            - '\svchost.exe'
+            - '\services.exe'
+            - '\msiexec.exe'
+    condition: selection and not filter
+falsepositives:
+    - Legitimate software checking system identity
+    - System management tools
+level: medium
+
+---
+title: Raccoon Stealer - Browser Credential File Access
+id: 8b9c0d1e-2345-6789-abcd-ef0123456789
+status: experimental
+description: Detects access to browser credential storage files commonly targeted by Raccoon Stealer
+references:
+    - https://attack.mitre.org/techniques/T1555/003/
+author: Threat Emulation Team
+date: 2024/01/15
+tags:
+    - attack.credential-access
+    - attack.t1555.003
+logsource:
+    category: file_access
+    product: windows
+detection:
+    chrome_creds:
+        TargetFilename|contains:
+            - '\Google\Chrome\User Data\'
+        TargetFilename|endswith:
+            - '\Login Data'
+            - '\Cookies'
+            - '\Web Data'
+    firefox_creds:
+        TargetFilename|contains: '\Mozilla\Firefox\Profiles\'
+        TargetFilename|endswith:
+            - '\logins.json'
+            - '\cookies.sqlite'
+            - '\key4.db'
+    edge_creds:
+        TargetFilename|contains: '\Microsoft\Edge\User Data\'
+        TargetFilename|endswith:
+            - '\Login Data'
+            - '\Cookies'
+    filter:
+        Image|endswith:
+            - '\chrome.exe'
+            - '\firefox.exe'
+            - '\msedge.exe'
+    condition: (chrome_creds or firefox_creds or edge_creds) and not filter
+falsepositives:
+    - Legitimate browser password managers
+    - Backup software
+level: high
+
+---
+title: Raccoon Stealer - Cryptocurrency Wallet Discovery
+id: 9c0d1e2f-3456-789a-bcde-f01234567890
+status: experimental
+description: Detects file access patterns consistent with cryptocurrency wallet theft by Raccoon Stealer
+references:
+    - https://attack.mitre.org/software/S1148/
+author: Threat Emulation Team
+date: 2024/01/15
+tags:
+    - attack.collection
+    - attack.t1005
+logsource:
+    category: file_access
+    product: windows
+detection:
+    wallet_access:
+        TargetFilename|contains:
+            - '\Exodus\exodus.wallet'
+            - '\atomic\Local Storage'
+            - '\Electrum\wallets'
+            - '\Coinomi\Coinomi\wallets'
+            - '\Monero\wallets'
+            - '\WalletWasabi\Client\Wallets'
+    wallet_dat:
+        TargetFilename|endswith: '\wallet.dat'
+    browser_extension_wallets:
+        TargetFilename|contains: '\Local Extension Settings\'
+        TargetFilename|contains:
+            - 'nkbihfbeogaeaoehlefnkodbefgpgknn'  # MetaMask
+            - 'bfnaelmomeimhlpmgjnjophhpkkoljpa'  # Phantom
+            - 'fhbohimaelbohpjbbldcngcnapndodjp'  # Binance Chain
+    condition: wallet_access or wallet_dat or browser_extension_wallets
+falsepositives:
+    - Legitimate wallet software operations
+    - Cryptocurrency trading applications
+level: high
+
+---
+title: Raccoon Stealer - Telegram Cache Access
+id: ad1e2f3a-4567-89ab-cdef-012345678901
+status: experimental
+description: Detects access to Telegram Desktop cache, targeted by Raccoon Stealer for session hijacking
+references:
+    - https://attack.mitre.org/techniques/T1213/
+author: Threat Emulation Team
+date: 2024/01/15
+tags:
+    - attack.collection
+    - attack.t1213
+logsource:
+    category: file_access
+    product: windows
+detection:
+    selection:
+        TargetFilename|contains: '\Telegram Desktop\tdata'
+    filter:
+        Image|endswith: '\Telegram.exe'
+    condition: selection and not filter
+falsepositives:
+    - Telegram updates
+    - Backup software
+level: high
+
+---
+title: Raccoon Stealer - Screenshot Capture via BitBlt
+id: be2f3a4b-5678-9abc-def0-123456789012
+status: experimental
+description: Detects potential screenshot capture activity using BitBlt API
+references:
+    - https://attack.mitre.org/techniques/T1113/
+author: Threat Emulation Team
+date: 2024/01/15
+tags:
+    - attack.collection
+    - attack.t1113
+logsource:
+    category: image_load
+    product: windows
+detection:
+    selection:
+        ImageLoaded|endswith: '\gdi32.dll'
+    filter:
+        Image|endswith:
+            - '\explorer.exe'
+            - '\dwm.exe'
+            - '\mspaint.exe'
+            - '\SnippingTool.exe'
+    condition: selection and not filter
+falsepositives:
+    - Legitimate screen capture applications
+    - Remote desktop software
+level: low
+
+---
+title: Raccoon Stealer - System Info File Creation
+id: cf3a4b5c-6789-abcd-ef01-234567890123
+status: experimental
+description: Detects creation of System info.txt file in temp directory, characteristic of Raccoon Stealer
+references:
+    - https://attack.mitre.org/software/S1148/
+author: Threat Emulation Team
+date: 2024/01/15
+tags:
+    - attack.collection
+    - attack.t1560
+logsource:
+    category: file_event
+    product: windows
+detection:
+    selection:
+        TargetFilename|endswith: '\System info.txt'
+        TargetFilename|contains:
+            - '\Temp\'
+            - '\AppData\Local\Temp\'
+    condition: selection
+falsepositives:
+    - System diagnostic tools
+    - IT administration scripts
+level: medium
+
+---
+title: Raccoon Stealer - DLL Loading Pattern
+id: d04b5c6d-789a-bcde-f012-345678901234
+status: experimental
+description: Detects loading of sqlite3.dll and nss3.dll by non-browser processes, indicating potential Raccoon Stealer activity
+references:
+    - https://attack.mitre.org/techniques/T1105/
+author: Threat Emulation Team
+date: 2024/01/15
+tags:
+    - attack.command-and-control
+    - attack.t1105
+logsource:
+    category: image_load
+    product: windows
+detection:
+    selection:
+        ImageLoaded|endswith:
+            - '\sqlite3.dll'
+            - '\nss3.dll'
+            - '\mozglue.dll'
+    filter:
+        Image|endswith:
+            - '\firefox.exe'
+            - '\thunderbird.exe'
+            - '\chrome.exe'
+            - '\msedge.exe'
+    condition: selection and not filter
+falsepositives:
+    - Applications using SQLite database
+    - Mozilla-based applications
+level: medium
