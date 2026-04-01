@@ -26,3 +26,6 @@ venv/
 
 # OS
 Thumbs.db
+
+# Warp/Oz agent context
+CLAUDE.md

