@@ -27,5 +27,8 @@ venv/
 # OS
 Thumbs.db
 
+# Playwright MCP
+.playwright-mcp/
+
 # Warp/Oz agent context
 CLAUDE.md
