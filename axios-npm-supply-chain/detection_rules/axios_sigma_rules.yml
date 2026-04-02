@@ -1,0 +1,224 @@
+title: Suspicious npm postinstall Script Execution
+id: 3a4b5c6d-0001-4e1f-a1b2-c3d4e5f60101
+status: experimental
+description: Detects execution of npm package postinstall scripts referencing external URLs or script interpreters — the delivery mechanism for the Axios supply chain RAT dropper (plain-crypto-js/setup.js).
+author: Caldera Threat Emulations
+date: 2026-03-31
+tags:
+  - attack.t1195.002
+  - attack.supply_chain
+  - axios
+logsource:
+  product: windows
+  service: powershell
+detection:
+  selection:
+    EventID: 4104
+    Payload|contains:
+      - 'postinstall'
+      - 'setup.js'
+      - 'plain-crypto-js'
+      - 'curl'
+      - 'wget'
+  keywords:
+    - '*node*postinstall*'
+    - '*npm_config_scripts_prepare*'
+  condition: selection
+level: high
+falsepositives:
+  - Legitimate npm packages with postinstall scripts from trusted vendors
+references:
+  - https://www.sans.org/blog/axios-npm-supply-chain-compromise-malicious-packages-remote-access-trojan
+  - https://strobes.co/blog/axios-npm-supply-chain-attack-compromised-rat-2026/
+---
+title: Compromised axios npm Package Version Detected
+id: 3a4b5c6d-0002-4e1f-a1b2-c3d4e5f60202
+status: experimental
+description: Alerts when a node_modules or project dependency resolves to a known-compromised axios version (1.14.1 or 0.30.4) or the malicious plain-crypto-js transitive dependency.
+author: Caldera Threat Emulations
+date: 2026-03-31
+tags:
+  - attack.t1195.002
+  - axios
+logsource:
+  product: windows
+  service: application
+  category: package_event
+detection:
+  selection:
+    PackageName|contains:
+      - 'axios@1.14.1'
+      - 'axios@0.30.4'
+      - 'plain-crypto-js@4.2.1'
+  condition: selection
+level: critical
+falsepositives:
+  - None — any match requires immediate investigation
+references:
+  - https://gist.github.com/N3mes1s/0c0fc7a0c23cdb5e1c8f66b208053ed6
+---
+title: RAT Binary Dropped to ProgramData (wt.exe)
+id: 3a4b5c6d-0003-4e1f-a1b2-c3d4e5f60303
+status: experimental
+description: Detects the Windows RAT staging artifact — a binary written to %PROGRAMDATA% named wt.exe (disguised as Windows Terminal) as seen in the Axios supply chain compromise.
+author: Caldera Threat Emulations
+date: 2026-03-31
+tags:
+  - attack.t1105
+  - attack.t1059.001
+  - axios
+logsource:
+  product: windows
+  service: file_event
+detection:
+  selection:
+    TargetFilename|contains: '\ProgramData\wt.exe'
+    Image|contains:
+      - 'powershell'
+      - 'cmd.exe'
+      - 'wscript'
+  condition: selection
+level: high
+falsepositives:
+  - Legitimate Windows Terminal executable in standard path
+fields:
+  - TargetFilename
+  - Image
+  - User
+---
+title: MicrosoftUpdate Registry Run Key Persistence
+id: 3a4b5c6d-0004-4e1f-a1b2-c3d4e5f60404
+status: experimental
+description: Detects persistence via the MicrosoftUpdate Run key — the exact registry path used by the Axios RAT to survive reboots, masquerading as a legitimate Windows Update component.
+author: Caldera Threat Emulations
+date: 2026-03-31
+tags:
+  - attack.t1547.001
+  - axios
+logsource:
+  product: windows
+  service: registry_event
+detection:
+  selection:
+    TargetObject|contains: 'MicrosoftUpdate'
+    TargetObject|contains:
+      - 'CurrentVersion\Run'
+      - 'Windows\CurrentVersion\Run'
+  condition: selection
+level: high
+falsepositives:
+  - None — MicrosoftUpdate in Run key is highly anomalous
+fields:
+  - TargetObject
+  - Image
+  - Details
+---
+title: XOR Obfuscation Pattern (OrDeR_7077)
+id: 3a4b5c6d-0005-4e1f-a1b2-c3d4e5f60505
+status: experimental
+description: Detects the XOR decryption key signature 'OrDeR_7077' used in the plain-crypto-js dropper's two-layer obfuscation — XOR + Base64 encoding in the setup.js RAT dropper.
+author: Caldera Threat Emulations
+date: 2026-03-31
+tags:
+  - attack.t1027
+  - axios
+logsource:
+  product: windows
+  service: file_content
+detection:
+  selection:
+    FileContents|contains: 'OrDeR_7077'
+  condition: selection
+level: high
+falsepositives:
+  - None known
+fields:
+  - FilePath
+  - FileContents
+---
+title: C2 Contact to sfrclak.com on Non-Standard Port 8000
+id: 3a4b5c6d-0006-4e1f-a1b2-c3d4e5f60606
+status: experimental
+description: Detects outbound HTTP connections to the known C2 infrastructure (sfrclak.com / 142.11.206.73) on port 8000 — the Axios RAT beaconing endpoint. Also covers backup domain callnrwise.com.
+author: Caldera Threat Emulations
+date: 2026-03-31
+tags:
+  - attack.t1104
+  - attack.t1571
+  - axios
+logsource:
+  product: windows
+  service: network_connection
+detection:
+  selection:
+    DestinationHostname|contains:
+      - 'sfrclak.com'
+      - 'callnrwise.com'
+    DestinationPort: 8000
+  condition: selection
+level: critical
+falsepositives:
+  - None — these domains are exclusively C2 infrastructure
+fields:
+  - DestinationHostname
+  - DestinationAddress
+  - DestinationPort
+  - Image
+---
+title: Suspicious IE8 User-Agent on Non-Standard Port
+id: 3a4b5c6d-0007-4e1f-a1b2-c3d4e5f60707
+status: experimental
+description: Detects the fake IE8 User-Agent used by the Axios RAT across all campaigns — mozilla/4.0 (compatible; msie 8.0; windows nt 5.1; trident/4.0) — used to beacon on port 8000 and fetch payloads. Consistent OPSEC fingerprint across BlueNoroff campaigns.
+author: Caldera Threat Emulations
+date: 2026-03-31
+tags:
+  - attack.t1071.001
+  - axios
+  - bluenoroff
+logsource:
+  product: windows
+  service: network_connection
+detection:
+  selection:
+    UserAgent|contains: 'mozilla/4.0 (compatible; msie 8.0; windows nt 5.1; trident/4.0)'
+  condition: selection
+level: high
+falsepositives:
+  - Legacy internal web applications requiring IE8 compatibility mode
+fields:
+  - Image
+  - UserAgent
+  - DestinationHostname
+  - DestinationPort
+---
+title: RAT Artifact Deletion (fs.unlinkSync / self-delete)
+id: 3a4b5c6d-0008-4e1f-a1b2-c3d4e5f60808
+status: experimental
+description: Detects the anti-forensics self-delete behavior of the Axios RAT dropper — fs.unlinkSync in Node.js context, or PowerShell Remove-Item / CMD del targeting npm/node staging directories immediately after postinstall script execution.
+author: Caldera Threat Emulations
+date: 2026-03-31
+tags:
+  - attack.t1070.004
+  - axios
+logsource:
+  product: windows
+  service: file_event
+detection:
+  selection:
+    TargetFilename|contains:
+      - 'setup.js'
+      - '6202033.vbs'
+      - '6202033.ps1'
+      - 'wt.exe'
+    Image|contains:
+      - 'node'
+      - 'powershell'
+      - 'cmd.exe'
+  condition: selection
+level: medium
+falsepositives:
+  - Legitimate package cleanup scripts
+fields:
+  - TargetFilename
+  - Image
+  - User

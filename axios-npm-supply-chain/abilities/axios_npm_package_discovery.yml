@@ -1,0 +1,86 @@
+---
+- id: 11111111-1111-4111-8111-111111111111
+  name: axios-npm-package-discovery
+  description: |
+    Simulates discovery of the compromised axios npm packages and malicious
+    plain-crypto-js transitive dependency in a node_modules tree. Does NOT
+    exfiltrate — only enumerates package.json entries and flags known-bad
+    versions (1.14.1, 0.30.4) and suspicious dependencies.
+  tactic: supply-chain-compromise
+  technique:
+    attack_id: T1195.002
+    name: Supply Chain Compromise - Software Supply Chain
+  platforms:
+    windows:
+      psh:
+        command: |
+          $result = @()
+          $pkgs = Get-ChildItem -Path "$env:USERPROFILE" -Recurse -Name "package.json" -ErrorAction SilentlyContinue | Select-Object -First 10
+          foreach ($pkg in $pkgs) {
+            try {
+              $content = Get-Content $pkg -Raw -ErrorAction SilentlyContinue | ConvertFrom-Json -ErrorAction SilentlyContinue
+              if ($content.dependencies.'plain-crypto-js') {
+                $result += "[ALERT] $($pkg): references malicious plain-crypto-js"
+              }
+              if ($content.version -in @('1.14.1','0.30.4')) {
+                $result += "[ALERT] $($pkg): contains compromised axios version $($content.version)"
+              }
+            } catch {}
+          }
+          if ($result.Count -eq 0) {
+            Write-Output "[OK] No known compromised axios packages detected in top 10 package.json files"
+          } else {
+            $result | ForEach-Object { Write-Output $_ }
+          }
+          Remove-Item -Path "$env:TEMP\axios_pkg_discovery.ps1" -ErrorAction SilentlyContinue
+        cleanup: |
+          Remove-Item -Path "$env:TEMP\axios_pkg_discovery.ps1" -ErrorAction SilentlyContinue
+      cmd:
+        command: |
+          for /r %USERPROFILE% %f in (package.json) do @findstr /C:"plain-crypto-js" "%f" >nul 2>&1 && echo MALICIOUS: %f
+  singleton: true
+  requirements: []
+---
+- id: 11111111-1111-4111-8111-111111111112
+  name: axios-postinstall-script-detection
+  description: |
+    Enumerates package.json files for suspicious postinstall scripts that
+    reference external URLs or inline JavaScript execution — a common RAT
+    dropper delivery mechanism seen in the axios compromise (setup.js via
+    plain-crypto-js postinstall).
+  tactic: discovery
+  technique:
+    attack_id: T1083
+    name: File and Directory Discovery
+  platforms:
+    windows:
+      psh:
+        command: |
+          $alerts = @()
+          Get-ChildItem -Path "$env:USERPROFILE" -Recurse -Filter "package.json" -ErrorAction SilentlyContinue | Select-Object -First 15 | ForEach-Object {
+            try {
+              $c = Get-Content $_.FullName -Raw -ErrorAction SilentlyContinue | ConvertFrom-Json -ErrorAction SilentlyContinue
+              $scripts = $c.scripts
+              if ($scripts) {
+                $scripts.PSObject.Properties | ForEach-Object {
+                  $val = $_.Value.ToString()
+                  if ($val -match "curl|wget|iex|node\s|eval|base64|decode|setup\.js|http") {
+                    $alerts += "[SUSPICIOUS] $($_.FullName) -> scripts.$($_.Name): $val"
+                  }
+                }
+              }
+            } catch {}
+          }
+          if ($alerts.Count -eq 0) {
+            Write-Output "[OK] No suspicious postinstall scripts detected"
+          } else {
+            $alerts | ForEach-Object { Write-Output $_ }
+          }
+          Remove-Item -Path "$env:TEMP\axios_postinstall.ps1" -ErrorAction SilentlyContinue
+        cleanup: |
+          Remove-Item -Path "$env:TEMP\axios_postinstall.ps1" -ErrorAction SilentlyContinue
+      cmd:
+        command: |
+          for /r %USERPROFILE% %f in (package.json) do @findstr /R "curl.*http wmic.*process node.*eval" "%f" >nul 2>&1 && echo SUSPICIOUS: %f
+  singleton: true
+  requirements: []

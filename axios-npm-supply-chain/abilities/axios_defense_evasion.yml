@@ -1,0 +1,105 @@
+---
+- id: 33333333-3333-4333-8333-333333333333
+  name: axios-obfuscation-patterns
+  description: |
+    Detects the obfuscation patterns used in the Axios supply chain attack.
+    The plain-crypto-js dropper (setup.js) used two-layer obfuscation:
+    Array of 18 command strings reversed and Base64-encoded, then XOR-
+    encrypted with key 'OrDeR_7077'. Also checks for XOR key patterns
+    and Base64-encoded command blocks in JavaScript/Node scripts.
+  tactic: defense-evasion
+  technique:
+    attack_id: T1027
+    name: Obfuscated Files or Information
+  platforms:
+    windows:
+      psh:
+        command: |
+          $alerts = @()
+          $xorKeyPattern = "OrDeR_7077"
+          $jsFiles = Get-ChildItem -Path "$env:USERPROFILE" -Recurse -Include "*.js","*.mjs","*.cjs" -ErrorAction SilentlyContinue | Select-Object -First 20
+          foreach ($f in $jsFiles) {
+            try {
+              $content = Get-Content $f.FullName -Raw -ErrorAction SilentlyContinue
+              # Check for XOR key signature
+              if ($content -match $xorKeyPattern) {
+                $alerts += "[ALERT] XOR key signature '$xorKeyPattern' found in $($f.FullName)"
+              }
+              # Check for double-encoding (Base64-in-Base64 or reversed + encoded)
+              $b64Matches = [regex]::Matches($content, '[A-Za-z0-9+/]{50,}={0,2}')
+              foreach ($m in $b64Matches) {
+                try {
+                  $decoded = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($m.Value))
+                  if ($decoded -match '[A-Za-z0-9+/]{50,}') {
+                    $alerts += "[ALERT] Possible double-Base64 encoded content in $($f.FullName)"
+                    break
+                  }
+                } catch {}
+              }
+              # Check for reversed string deobfuscation pattern
+              if ($content -match 'split\(["\']?["\']?\).*reverse\(\).*join' -or
+                  $content -match '\.charAt\(|\.charCodeAt') {
+                $alerts += "[SUSPICIOUS] String deobfuscation pattern in $($f.FullName)"
+              }
+            } catch {}
+          }
+          if ($alerts.Count -eq 0) {
+            Write-Output "[OK] No known obfuscation patterns detected"
+          } else {
+            $alerts | Select-Object -First 5 | ForEach-Object { Write-Output $_ }
+          }
+          Remove-Item -Path "$env:TEMP\axios_obfuscation.ps1" -ErrorAction SilentlyContinue
+        cleanup: |
+          Remove-Item -Path "$env:TEMP\axios_obfuscation.ps1" -ErrorAction SilentlyContinue
+      cmd:
+        command: |
+          for /r %USERPROFILE% %f in (*.js) do @findstr /R "OrDeR_7077" "%f" >nul 2>&1 && echo OBFUSCATION: %f
+  singleton: true
+  requirements: []
+---
+- id: 33333333-3333-4333-8333-333333333334
+  name: axios-artifact-deletion
+  description: |
+    Simulates the anti-forensics self-delete behavior of the Axios supply
+    chain dropper. The real setup.js deleted itself via fs.unlinkSync
+    and replaced the malicious package.json with a clean package.md
+    (identical content, different extension) to evade post-incident
+    forensic inspection. This ability simulates that artifact removal
+    sequence for the staged RAT files.
+  tactic: defense-evasion
+  technique:
+    attack_id: T1070.004
+    name: Indicator Removal - File Deletion
+  platforms:
+    windows:
+      psh:
+        command: |
+          $artifacts = @(
+            "$env:PROGRAMDATA\wt.exe",
+            "$env:TEMP\6202033.vbs",
+            "$env:TEMP\6202033.ps1",
+            "$env:TEMP\axios_postinstall.ps1",
+            "$env:TEMP\axios_obfuscation.ps1",
+            "$env:TEMP\axios_pkg_discovery.ps1"
+          )
+          "[SIMULATED] Anti-forensics: self-delete sequence"
+          foreach ($a in $artifacts) {
+            if (Test-Path $a) {
+              "[SIMULATED] Would delete artifact: $a"
+            }
+          }
+          "[SIMULATED] Simulating package.json -> package.md swap (pre-staged clean manifest)"
+          "[SIMULATED] Artifact removal simulation complete — staging files retained in simulation mode"
+        cleanup: |
+          Remove-Item -Path "$env:PROGRAMDATA\wt.exe" -ErrorAction SilentlyContinue
+          Remove-Item -Path "$env:TEMP\6202033.vbs" -ErrorAction SilentlyContinue
+          Remove-Item -Path "$env:TEMP\6202033.ps1" -ErrorAction SilentlyContinue
+          Remove-Item -Path "$env:TEMP\axios_postinstall.ps1" -ErrorAction SilentlyContinue
+          Remove-Item -Path "$env:TEMP\axios_obfuscation.ps1" -ErrorAction SilentlyContinue
+          Remove-Item -Path "$env:TEMP\axios_pkg_discovery.ps1" -ErrorAction SilentlyContinue
+      cmd:
+        command: |
+          echo [SIMULATED] Anti-forensics: fs.unlinkSync equivalent for staged artifacts
+          echo [SIMULATED] package.json -> package.md swap (forensic countermeasure)
+  singleton: true
+  requirements: []

