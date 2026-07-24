@@ -44,6 +44,10 @@ atomic_ordering:
   - a1b2c3d4-2020-4a5b-8c9d-e0f1a2b3c4d5  # raccoon-data-staging
   - a1b2c3d4-3030-4a5b-8c9d-e0f1a2b3c4d5  # raccoon-data-exfiltration-simulation
 
+  # Phase 6: C2 Beaconing (added 2026-07-18 — TH201 Ep4 Clustering demo needs real DNS telemetry;
+  # the exfiltration ability above is print-only, no real network activity)
+  - 96b2ff86-89e2-4d4c-ae1d-780b3206281a  # raccoon-dga-dns-beaconing
+
 objective: default
 tags:
   - infostealer

@@ -1,0 +1,39 @@
+---
+# Raccoon Stealer - DGA-style C2 Beaconing (custom addition)
+# MITRE ATT&CK: T1568.002 - Dynamic Resolution: Domain Generation Algorithms
+#
+# Added 2026-07-18 for the TH201 Ep4 "Clustering" demo — raccoon-stealer-v2's original
+# abilities have no real network activity (raccoon_staging_exfil's exfil step only prints
+# what a POST would look like). Hunt 4.2 in that episode needs actual DNS query telemetry
+# with long, algorithmically-random-looking domain names to demonstrate structural clustering.
+
+- id: 96b2ff86-89e2-4d4c-ae1d-780b3206281a
+  name: raccoon-dga-dns-beaconing
+  description: |
+    Simulates DGA-style C2 beaconing: generates long, algorithmically-random-looking
+    subdomains and resolves each via DNS. NXDOMAIN is expected and fine — the DNS query
+    itself is what generates the telemetry (Sysmon Event ID 22 / DNS integration),
+    independent of whether the domain actually resolves.
+  tactic: command-and-control
+  technique:
+    attack_id: T1568.002
+    name: "Dynamic Resolution: Domain Generation Algorithms"
+  platforms:
+    windows:
+      psh:
+        # NOTE (2026-07-18): this MUST be a semicolon-separated single logical line, not
+        # newline-separated statements. Abilities created via Caldera's REST API (as opposed
+        # to loaded from this YAML file at server startup) had their command's newlines
+        # stripped entirely in transit to the Sandcat agent — statements got glued together
+        # with zero separator (e.g. "System.Randomfunction"), causing a PowerShell parser
+        # error and the ability silently doing nothing. File-loaded YAML abilities (the
+        # original raccoon-stealer set) don't hit this because Caldera wraps them as a real
+        # .ps1 script file; REST-API-created ones apparently don't. Keep this semicolon-joined
+        # even if this file is later loaded via deploy_to_caldera.sh instead of the API, so
+        # behavior is identical either way.
+        command: |
+          Write-Output "[*] Simulating DGA-style DNS beaconing..."; $parentDomains = @("malware-c2.io","update-svc.net","cdn-relay.com","telemetry-sync.org"); $charset = "abcdefghijklmnopqrstuvwxyz0123456789"; $rand = New-Object System.Random; 1..18 | ForEach-Object { $labelLen = $rand.Next(16,34); $label = -join ((1..$labelLen) | ForEach-Object { $charset[$rand.Next(0,$charset.Length)] }); $parent = $parentDomains[$rand.Next(0,$parentDomains.Length)]; $domain = "$label.$parent"; try { $result = Resolve-DnsName -Name $domain -ErrorAction SilentlyContinue; if ($result) { Write-Output "[+] $domain -> resolved" } else { Write-Output "[-] $domain -> NXDOMAIN" } } catch { Write-Output "[-] $domain -> query failed" }; Start-Sleep -Milliseconds (300 + $rand.Next(0,500)) }; Write-Output "[*] DGA DNS beaconing simulation complete"
+        cleanup: |
+          # No filesystem artifacts to clean up — this ability only issues DNS queries.
+  singleton: true
+  requirements: []
