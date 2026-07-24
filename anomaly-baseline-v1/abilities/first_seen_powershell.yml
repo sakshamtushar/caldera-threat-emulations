@@ -1,0 +1,34 @@
+---
+# Anomaly Baseline v1 - First-Seen Encoded PowerShell
+# MITRE ATT&CK: T1059.001 - Command and Scripting Interpreter: PowerShell
+#
+# Added 2026-07-24 for the TH201 Ep5 "Anomaly Detection & Forecasting" demo. Feeds Hunt 5.2
+# (first-seen command pattern for a host). NOTE: the hunt is deliberately scoped to a specific
+# SUSPICIOUS invocation pattern (-EncodedCommand + hidden window), not "first ever
+# powershell.exe" — real environments have too much legitimate PowerShell noise for a raw
+# first-seen-powershell hunt to be meaningful. baseline_process_noise already includes plain
+# Get-Process/Get-Service calls, so this ability's encoded/hidden combination is genuinely the
+# first (and only) occurrence of THAT pattern in the operation's window, which is what makes
+# it a valid "first-seen" teaching example.
+
+- id: c9fa13c6-89c2-4cd4-879a-ff392cf59750
+  name: anomaly-first-seen-encoded-powershell
+  description: |
+    Launches a single child powershell.exe process using -EncodedCommand with a hidden
+    window — the first and only occurrence of this flag combination for the host in the
+    operation's window. Demonstrates a first-seen-pattern hunt, distinct from a raw
+    first-seen-process hunt.
+  tactic: execution
+  technique:
+    attack_id: T1059.001
+    name: "Command and Scripting Interpreter: PowerShell"
+  platforms:
+    windows:
+      psh:
+        command: |
+          Write-Output "[*] First-seen obfuscated PowerShell invocation starting"; $payload = 'Get-Process | Select-Object -First 5 | Format-Table -AutoSize'; $bytes = [System.Text.Encoding]::Unicode.GetBytes($payload); $encoded = [Convert]::ToBase64String($bytes); Start-Process -FilePath "powershell.exe" -ArgumentList "-NoProfile","-WindowStyle","Hidden","-EncodedCommand",$encoded -Wait -WindowStyle Hidden; Write-Output "[+] Executed encoded PowerShell command (first occurrence this host in the demo window)"
+        cleanup: |
+          # No filesystem artifacts to clean up — the encoded command only enumerates
+          # processes, it doesn't write anything to disk.
+  singleton: true
+  requirements: []

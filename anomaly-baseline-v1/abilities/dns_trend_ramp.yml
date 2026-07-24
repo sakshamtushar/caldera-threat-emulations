@@ -1,0 +1,30 @@
+---
+# Anomaly Baseline v1 - DNS Trend Ramp
+# MITRE ATT&CK: T1071.004 - Application Layer Protocol: DNS
+#
+# Added 2026-07-24 for the TH201 Ep5 "Anomaly Detection & Forecasting" demo. Feeds Hunt 5.3
+# (forecast-based deviation) — the riskiest hunt of the three since ES|QL has no native
+# forecast function. Issues DGA-style DNS queries (same technique as Ep4's DGA-DNS beaconing
+# ability) but with a STEADILY SHRINKING interval between queries (~47s down to ~3s across 16
+# queries) instead of constant jitter, so a linear/moving-average trend built in EVAL has a
+# real ramping signal to project forward against actual query volume.
+
+- id: 99d7b3c0-4077-4114-90d6-025d3da40df8
+  name: anomaly-dns-trend-ramp
+  description: |
+    Simulates a C2 beacon accelerating its check-in frequency over time: resolves
+    algorithmically-random subdomains with a per-query delay that shrinks from ~47s to ~3s
+    across 16 queries. NXDOMAIN is expected and fine — the DNS query itself is the signal.
+  tactic: command-and-control
+  technique:
+    attack_id: T1071.004
+    name: "Application Layer Protocol: DNS"
+  platforms:
+    windows:
+      psh:
+        command: |
+          Write-Output "[*] DNS trend ramp starting"; $parentDomains = @("beacon-relay.net","update-check.io","cdn-sync.com"); $charset = "abcdefghijklmnopqrstuvwxyz0123456789"; $rand = New-Object System.Random; 1..16 | ForEach-Object { $i = $_; $labelLen = $rand.Next(10,20); $label = -join ((1..$labelLen) | ForEach-Object { $charset[$rand.Next(0,$charset.Length)] }); $parent = $parentDomains[$rand.Next(0,$parentDomains.Length)]; $domain = "$label.$parent"; try { Resolve-DnsName -Name $domain -ErrorAction SilentlyContinue | Out-Null; Write-Output "[+] query $i : $domain" } catch { Write-Output "[-] query $i failed" }; $delay = [Math]::Max(3, 50 - ($i * 3)); Start-Sleep -Seconds $delay }; Write-Output "[*] DNS trend ramp complete: interval shrank from ~47s to ~3s across 16 queries"
+        cleanup: |
+          # No filesystem artifacts to clean up — this ability only issues DNS queries.
+  singleton: true
+  requirements: []

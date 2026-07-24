@@ -1,0 +1,38 @@
+---
+# Caldera Adversary Profile: Anomaly Baseline v1
+# Description: Time-based baseline + deviation emulation for the TH201 Ep5
+# "Anomaly Detection & Forecasting" episode.
+
+id: 89d823eb-80e7-47c2-9840-43a550b72aa4
+name: Anomaly Baseline v1
+description: |
+  Purpose-built emulation for validating anomaly-detection and forecasting-style ES|QL
+  hunts against real telemetry, compressed into a single ~15-20 minute operation. Unlike
+  raccoon-stealer-v2 (single-shot bursts), this profile establishes a quiet baseline period
+  before each deviation, so hunts that need a "normal for this host" reference point have
+  real data to compare against.
+
+  Added 2026-07-24 for TH201 Episode 5. Feeds three hunts:
+  - Hunt 5.1 (process-volume baseline break): Phase 1 -> Phase 2
+  - Hunt 5.2 (first-seen suspicious pattern): Phase 3
+  - Hunt 5.3 (forecast-based deviation): Phase 4
+
+atomic_ordering:
+  # Phase 1: Baseline — quiet, steady-rate discovery-command noise (~7-10 min)
+  - 6844bdf7-0577-4a5c-aeb4-d9c7e3bcdb0f  # anomaly-baseline-process-noise
+
+  # Phase 2: Deviation — same style of commands, ~10x the rate, in a tight burst (~1-2 min)
+  - 58810e60-2b99-49ee-9522-3c046b784814  # anomaly-volume-spike-deviation
+
+  # Phase 3: First-seen pattern — one encoded/hidden PowerShell invocation
+  - c9fa13c6-89c2-4cd4-879a-ff392cf59750  # anomaly-first-seen-encoded-powershell
+
+  # Phase 4: Trend ramp — DNS beacon frequency accelerating over ~15 min
+  - 99d7b3c0-4077-4114-90d6-025d3da40df8  # anomaly-dns-trend-ramp
+
+objective: default
+tags:
+  - anomaly-detection
+  - forecasting
+  - baseline-deviation
+  - th201-ep5

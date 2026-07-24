@@ -1,0 +1,30 @@
+---
+# Anomaly Baseline v1 - Volume Spike Deviation
+# MITRE ATT&CK: T1082 - System Information Discovery
+#
+# Added 2026-07-24 for the TH201 Ep5 "Anomaly Detection & Forecasting" demo. Feeds Hunt 5.1.
+# Runs immediately AFTER baseline_process_noise in atomic_ordering: fires ~50 of the same
+# style of discovery-tool process launches in a tight ~60-90s burst — an order of magnitude
+# above the baseline phase's rate — so a BUCKET()-based rolling avg/stddev query has a real,
+# unambiguous deviation to flag rather than a marginal one.
+
+- id: 58810e60-2b99-49ee-9522-3c046b784814
+  name: anomaly-volume-spike-deviation
+  description: |
+    Simulates a burst of rapid process creation on the same host that just produced quiet
+    baseline noise — ~50 discovery-command launches in under 90 seconds. This is the
+    deviation Hunt 5.1's per-host volume-baseline hunt is built to catch.
+  tactic: discovery
+  technique:
+    attack_id: T1082
+    name: "System Information Discovery"
+  platforms:
+    windows:
+      psh:
+        command: |
+          Write-Output "[*] Volume spike deviation starting"; $cmds = @('whoami','hostname','ipconfig','Get-Date'); $rand = New-Object System.Random; 1..50 | ForEach-Object { $c = $cmds[$rand.Next(0,$cmds.Length)]; try { Invoke-Expression $c | Out-Null } catch {}; Start-Sleep -Milliseconds ($rand.Next(500,1500)) }; Write-Output "[*] Volume spike deviation complete: 50 process creations in a compressed burst"
+        cleanup: |
+          # No filesystem artifacts to clean up — same short-lived discovery processes as
+          # baseline_process_noise, just fired at a much higher rate.
+  singleton: true
+  requirements: []

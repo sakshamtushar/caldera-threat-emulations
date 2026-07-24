@@ -1,0 +1,36 @@
+---
+# Anomaly Baseline v1 - Process Noise (Baseline Phase)
+# MITRE ATT&CK: T1082 - System Information Discovery
+#
+# Added 2026-07-24 for the TH201 Ep5 "Anomaly Detection & Forecasting" demo. This ability
+# feeds Hunt 5.1 (per-host process-volume baseline break): it establishes a quiet, steady
+# rate of "normal" discovery-tool process launches on the host so a later spike
+# (volume_spike_deviation) has a real baseline to deviate from. Runs BEFORE the spike ability
+# in atomic_ordering — the BUCKET()-based hunt query needs this phase's timestamps to sit in
+# earlier buckets than the spike's.
+
+- id: 6844bdf7-0577-4a5c-aeb4-d9c7e3bcdb0f
+  name: anomaly-baseline-process-noise
+  description: |
+    Simulates a host's normal, low-rate process-creation activity: periodic benign discovery
+    commands (whoami, hostname, ipconfig, Get-Process, Get-Date, Get-Service) spaced ~20-45s
+    apart across ~14 iterations (~7-10 min compressed window). This is the "baseline" a
+    per-host process-volume anomaly hunt learns from before the deviation phase spikes.
+  tactic: discovery
+  technique:
+    attack_id: T1082
+    name: "System Information Discovery"
+  platforms:
+    windows:
+      psh:
+        # Single semicolon-joined logical line, not newline-separated — abilities created via
+        # Caldera's REST API have their command's newlines stripped in transit, gluing
+        # statements together with no separator (confirmed on Ep4's DGA-DNS ability). Keep
+        # this joined even if later loaded via deploy_to_caldera.sh instead of the API.
+        command: |
+          Write-Output "[*] Baseline process noise starting"; $cmds = @('whoami','hostname','ipconfig','Get-Process | Select-Object -First 3','Get-Date','Get-Service | Select-Object -First 3'); $rand = New-Object System.Random; 1..14 | ForEach-Object { $c = $cmds[$rand.Next(0,$cmds.Length)]; try { Invoke-Expression $c | Out-Null; Write-Output "[+] ran: $c" } catch { Write-Output "[-] failed: $c" }; Start-Sleep -Seconds ($rand.Next(20,45)) }; Write-Output "[*] Baseline process noise complete"
+        cleanup: |
+          # No filesystem artifacts to clean up — this ability only launches short-lived
+          # discovery processes that exit on their own.
+  singleton: true
+  requirements: []
